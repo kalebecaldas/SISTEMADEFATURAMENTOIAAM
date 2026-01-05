@@ -136,6 +136,27 @@ const initDatabase = async () => {
     const { adicionarTipoContratoVinculos } = require('./migrations/adicionar_tipo_contrato_vinculos');
     await adicionarTipoContratoVinculos();
 
+    // Garantir que admin existe (executado sempre)
+    const bcrypt = require('bcryptjs');
+    const adminEmail = 'kalebe.caldas@hotmail.com';
+    const adminSenha = 'mxskqgltne';
+    const adminNome = 'Kalebe Caldas';
+
+    const existingAdmin = await db('usuarios').where({ email: adminEmail }).first();
+    if (!existingAdmin) {
+      const senhaHash = bcrypt.hashSync(adminSenha, 10);
+      await db('usuarios').insert({
+        email: adminEmail,
+        senha: senhaHash,
+        nome: adminNome,
+        tipo: 'admin',
+        ativo: true
+      });
+      console.log('✅ Admin customizado criado:', adminEmail);
+    } else {
+      console.log('ℹ️ Admin já existe:', adminEmail);
+    }
+
     console.log('✅ Banco de dados inicializado com sucesso');
   } catch (error) {
     console.error('❌ Erro ao inicializar banco de dados:', error);
