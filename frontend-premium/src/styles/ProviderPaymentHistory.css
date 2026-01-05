@@ -1,0 +1,370 @@
+.provider-payment-history {
+    padding: 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.page-header h1 {
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, #0066FF 0%, #00D4FF 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 2rem;
+}
+
+/* Filtros */
+.filters {
+    display: flex;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    max-width: 200px;
+}
+
+.filter-group label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.filter-group select {
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.filter-group select:hover {
+    background: var(--bg-card);
+    border-color: rgba(0, 102, 255, 0.3);
+}
+
+/* Card Principal de Valor */
+.value-card {
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, rgba(0, 102, 255, 0.1) 0%, rgba(0, 212, 255, 0.1) 100%);
+}
+
+.value-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.value-header svg {
+    color: #0066FF;
+}
+
+.value-main {
+    text-align: center;
+}
+
+.value-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.value-amount {
+    font-size: 3.5rem;
+    font-weight: bold;
+    background: linear-gradient(135deg, #0066FF 0%, #00D4FF 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0.5rem 0;
+}
+
+.edited-badge {
+    display: inline-block;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+    background: rgba(255, 152, 0, 0.2);
+    border: 1px solid rgba(255, 152, 0, 0.3);
+    border-radius: 20px;
+    color: #ff9800;
+    margin-top: 0.5rem;
+}
+
+/* Grid de Estatísticas */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 102, 255, 0.2);
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.stat-icon.meta {
+    background: linear-gradient(135deg, #0066FF 0%, #00D4FF 100%);
+}
+
+.stat-icon.percentual {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+}
+
+.stat-icon.faltas {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+}
+
+.stat-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.stat-value.success {
+    color: #4CAF50;
+}
+
+.stat-value.warning {
+    color: #ff9800;
+}
+
+.stat-value.danger {
+    color: #f44336;
+}
+
+/* Card de Status da Meta */
+.meta-status-card {
+    padding: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.meta-status-card.success {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(69, 160, 73, 0.1) 100%);
+    border-left: 4px solid #4CAF50;
+}
+
+.meta-status-card.warning {
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(245, 124, 0, 0.1) 100%);
+    border-left: 4px solid #ff9800;
+}
+
+.status-icon {
+    font-size: 3rem;
+}
+
+.status-content h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-primary);
+}
+
+.status-content p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+/* Observações */
+.observacoes-card {
+    padding: 1.5rem;
+}
+
+.observacoes-card h4 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+}
+
+.observacoes-card p {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.observacoes-card small {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.empty-state svg {
+    color: var(--text-secondary);
+    opacity: 0.5;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    color: var(--text-primary);
+    margin: 1rem 0 0.5rem 0;
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+}
+
+/* Loading */
+.loading {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-secondary);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .provider-payment-history {
+        padding: 1rem;
+    }
+
+    .page-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .filters {
+        flex-direction: column;
+        padding: 1rem;
+    }
+
+    .filter-group {
+        max-width: 100%;
+    }
+
+    .value-card {
+        padding: 1.5rem;
+    }
+
+    .value-amount {
+        font-size: 2.5rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .meta-status-card {
+        flex-direction: column;
+        text-align: center;
+        padding: 1.5rem;
+    }
+
+    .status-icon {
+        font-size: 2.5rem;
+    }
+}
+
+/* Multi-Contract Styles */
+.consolidado-card {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
+    border: 2px solid rgba(139, 92, 246, 0.3);
+}
+
+.payment-contract-section {
+    margin-bottom: 2rem;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.section-title.prestador-title {
+    background: rgba(99, 102, 241, 0.1);
+    color: #818cf8;
+    border-left: 4px solid #818cf8;
+}
+
+.section-title.clt-title {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border-left: 4px solid #10b981;
+}
+
+.section-title h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.prestador-card {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(99, 102, 241, 0.1) 100%);
+    border: 2px solid rgba(99, 102, 241, 0.2);
+}
+
+.clt-card {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.1) 100%);
+    border: 2px solid rgba(16, 185, 129, 0.2);
+}
+
+.detail-badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    color: var(--text-main);
+}
+
+.consolidado-detail {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+}
+
+.stat-value-small {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+}

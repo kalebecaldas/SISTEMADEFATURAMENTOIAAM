@@ -1,0 +1,136 @@
+.comprovante-info {
+    background: var(--background-secondary);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.comprovante-info p {
+    margin: 5px 0;
+    font-size: 0.9rem;
+}
+
+.comprovante-exists {
+    text-align: center;
+}
+
+.success-badge {
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.success-badge p {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--text-primary);
+    margin: 10px 0 5px;
+}
+
+.success-badge small {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.comprovante-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 20px 0;
+}
+
+.no-comprovante {
+    text-align: center;
+    padding: 30px;
+    color: var(--text-muted);
+}
+
+.no-comprovante p {
+    margin-top: 10px;
+    font-size: 1rem;
+}
+
+.upload-section {
+    margin-top: 20px;
+}
+
+.dropzone {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.dropzone:hover {
+    border-color: var(--primary-color);
+    background: var(--background-secondary);
+}
+
+.dropzone p {
+    margin: 10px 0 5px;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.dropzone small {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.selected-file {
+    margin-top: 15px;
+    padding: 10px 15px;
+    background: var(--background-secondary);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.selected-file p {
+    margin: 0 0 5px;
+    font-weight: 500;
+}
+
+.selected-file small {
+    color: var(--text-muted);
+}
+
+.viewer-modal {
+    width: 90%;
+    max-width: 1000px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.viewer-content {
+    flex: 1;
+    overflow: auto;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+}
+
+.btn-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}

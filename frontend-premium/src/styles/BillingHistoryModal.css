@@ -1,0 +1,192 @@
+.billing-history-modal {
+    max-width: 700px;
+    width: 100%;
+    max-height: 85vh;
+}
+
+.billing-history-modal .modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.billing-history-modal .modal-header h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.3rem;
+    color: var(--text-primary);
+}
+
+.billing-history-modal .provider-name {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.billing-history-modal .modal-body {
+    padding: 1.5rem;
+    max-height: calc(85vh - 100px);
+    overflow-y: auto;
+}
+
+.loading-state,
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.loading-state svg.spin {
+    animation: spin 2s linear infinite;
+    color: #0066FF;
+    margin-bottom: 1rem;
+}
+
+.empty-state svg {
+    color: var(--text-secondary);
+    opacity: 0.5;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.history-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1.5rem;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.history-item:hover {
+    background: var(--bg-input);
+    transform: translateX(4px);
+}
+
+.history-date {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 140px;
+}
+
+.history-date svg {
+    color: #0066FF;
+    flex-shrink: 0;
+}
+
+.history-date div {
+    display: flex;
+    flex-direction: column;
+}
+
+.history-date .month {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.history-date .year {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.history-values {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.value-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.value-item .label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.value-item .value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.value-item .value.meta {
+    color: #FF9800;
+}
+
+.meta-status {
+    display: flex;
+    align-items: center;
+}
+
+.meta-status .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.meta-status .status-badge.success {
+    background: rgba(76, 175, 80, 0.15);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    color: #4CAF50;
+}
+
+.meta-status .status-badge.failed {
+    background: rgba(244, 67, 54, 0.15);
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    color: #f44336;
+}
+
+.meta-status .status-badge svg {
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .billing-history-modal {
+        max-height: 95vh;
+    }
+
+    .history-item {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .history-values {
+        gap: 1rem;
+    }
+
+    .meta-status {
+        justify-content: center;
+    }
+}

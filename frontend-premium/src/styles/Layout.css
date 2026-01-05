@@ -1,0 +1,40 @@
+/* ZoraH Theme Colors */
+:root {
+    --zorah-primary: #0066FF;
+    --zorah-primary-dark: #0052CC;
+    --zorah-primary-light: #3385FF;
+    --zorah-secondary: #00D4FF;
+    --zorah-accent: #FF6B00;
+
+    /* Gradients */
+    --zorah-gradient: linear-gradient(135deg, #0066FF 0%, #00D4FF 100%);
+    --zorah-gradient-card: linear-gradient(135deg, rgba(0, 102, 255, 0.1) 0%, rgba(0, 212, 255, 0.1) 100%);
+
+    /* Update primary color */
+    --primary: #0066FF;
+    --primary-dark: #0052CC;
+    --primary-light: #3385FF;
+}
+
+.layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.main-content {
+    flex: 1;
+    margin-left: 260px;
+    padding: 2rem;
+    min-height: 100vh;
+    position: relative;
+    transition: margin-left 0.3s ease;
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+        padding: 1rem;
+        padding-top: 4.5rem;
+        /* Space for mobile menu button */
+    }
+}

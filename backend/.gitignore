@@ -1,0 +1,11 @@
+.env
+.env.local
+node_modules/
+uploads/
+*.log
+logs/
+database.sqlite
+.DS_Store
+build/
+dist/
+.cache/

@@ -1,0 +1,119 @@
+.tabbed-page {
+    padding: 2rem 3.5rem;
+    max-width: 1440px;
+    margin: 0 auto;
+}
+
+.tabbed-page .page-header {
+    margin-bottom: 1.5rem;
+}
+
+.tabbed-page .page-header h1 {
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, #0066FF 0%, #00D4FF 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 0 0.5rem 0;
+}
+
+.tabbed-page .page-header p {
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.tabs-container {
+    padding: 6px;
+    margin-bottom: 2rem;
+    /* Usa a base da classe glass-card, apenas ajustamos o necessário */
+}
+
+.tabs {
+    display: flex;
+    gap: 6px;
+    border-bottom: none;
+}
+
+.tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.8rem 1.5rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.tab:hover:not(.active) {
+    background: var(--bg-input);
+    color: var(--text-main);
+}
+
+.tab.active {
+    color: white;
+    background: var(--gradient-primary);
+    box-shadow: 0 4px 20px rgba(0, 102, 255, 0.4);
+    border: none;
+    outline: none;
+}
+
+.tab svg {
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.tab.active svg {
+    transform: scale(1.1);
+}
+
+.tab-content {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Remove padding duplicado das páginas internas */
+.tab-content>div {
+    padding: 0;
+}
+
+.tab-content .page-header {
+    display: none;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 768px) {
+    .tabbed-page {
+        padding: 1rem;
+    }
+
+    .tabs {
+        flex-direction: column;
+    }
+
+    .tab {
+        justify-content: flex-start;
+        border: none;
+        padding: 1rem;
+    }
+
+    .tab.active {
+        background: var(--gradient-primary);
+    }
+}
