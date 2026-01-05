@@ -162,6 +162,48 @@ app.get('/api/test-email', async (req, res) => {
   res.json(result);
 });
 
+// Rota temporária para criar admin (REMOVER EM PRODUÇÃO)
+app.get('/api/create-admin-now', async (req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const { db } = require('./database/init');
+
+    const adminEmail = 'kalebe.caldas@hotmail.com';
+    const adminSenha = 'mxskqgltne';
+    const adminNome = 'Kalebe Caldas';
+
+    const existingAdmin = await db('usuarios').where({ email: adminEmail }).first();
+
+    if (existingAdmin) {
+      return res.json({
+        success: true,
+        message: 'Admin já existe!',
+        email: adminEmail
+      });
+    }
+
+    const senhaHash = bcrypt.hashSync(adminSenha, 10);
+    await db('usuarios').insert({
+      email: adminEmail,
+      senha: senhaHash,
+      nome: adminNome,
+      tipo: 'admin',
+      ativo: true
+    });
+
+    res.json({
+      success: true,
+      message: 'Admin criado com sucesso!',
+      email: adminEmail
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Middleware para rotas não encontradas (deve vir antes do error handler)
 app.use(notFound);
 
