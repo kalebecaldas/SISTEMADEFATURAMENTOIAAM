@@ -92,6 +92,15 @@ const initDatabase = async () => {
     const { adicionarTabelasContratos } = require('./migrations/contratos');
     await adicionarTabelasContratos();
 
+    // Criar tabela de vínculos (CRÍTICO - deve vir antes das outras)
+    const { up: criarTabelaVinculos } = require('./migrations/007_prestador_vinculos');
+    const hasVinculos = await db.schema.hasTable('prestador_vinculos');
+    if (!hasVinculos) {
+      await criarTabelaVinculos();
+    } else {
+      console.log('ℹ️  Tabela prestador_vinculos já existe');
+    }
+
     // Adicionar campos de confirmação (NOVO)
     const { adicionarCamposConfirmacao } = require('./migrations/confirmacao');
     await adicionarCamposConfirmacao();
