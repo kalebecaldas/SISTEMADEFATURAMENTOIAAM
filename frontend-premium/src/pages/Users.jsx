@@ -185,10 +185,16 @@ const Users = () => {
         }
     };
 
-    const filteredUsers = users.filter(user =>
-        user.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredUsers = users
+        .filter(user =>
+            user.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .sort((a, b) => {
+            const nomeA = (a.nome || '').toLowerCase();
+            const nomeB = (b.nome || '').toLowerCase();
+            return nomeA.localeCompare(nomeB);
+        });
 
     const getRoleBadge = (tipo) => {
         const badges = {
