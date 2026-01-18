@@ -5,7 +5,27 @@ const morgan = require('morgan');
 const http = require('http');
 const socketIo = require('socket.io');
 const compression = require('compression');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
+
+// Criar diretórios necessários se não existirem
+const requiredDirs = [
+  path.join(__dirname, 'uploads'),
+  path.join(__dirname, 'uploads/temp'),
+  path.join(__dirname, 'uploads/planilhas'),
+  path.join(__dirname, 'uploads/notas'),
+  path.join(__dirname, 'uploads/comprovantes'),
+  path.join(__dirname, 'logs')
+];
+
+requiredDirs.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`✅ Diretório criado: ${dir}`);
+  }
+});
+
 
 const { initDatabase } = require('./database/init');
 const logger = require('./services/logger');
