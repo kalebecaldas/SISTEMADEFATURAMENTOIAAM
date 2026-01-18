@@ -1,0 +1,52 @@
+# Dependências
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Variáveis de ambiente (NUNCA commitar!)
+.env
+.env.local
+.env.*.local
+
+# Banco de dados local
+*.db
+*.sqlite
+*.sqlite3
+backend/database/*.db
+
+# Build
+dist/
+build/
+.vite/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Uploads (arquivos de usuários)
+uploads/*
+!uploads/.gitkeep
+
+# Temporários
+tmp/
+temp/
+*.tmp
+
+# Backups
+*.bak
+backup*.sql
+
+# Railway (se necessário)
+.railway/
