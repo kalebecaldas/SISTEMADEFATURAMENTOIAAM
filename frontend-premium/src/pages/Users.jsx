@@ -270,8 +270,8 @@ const Users = () => {
                     <table className="data-table">
                         <thead>
                             <tr>
-                                <th>Email</th>
                                 <th>Nome</th>
+                                <th>Email</th>
                                 <th>Role</th>
                                 <th>Status</th>
                                 <th>Ações</th>
@@ -282,8 +282,8 @@ const Users = () => {
                                 const badge = getRoleBadge(user.tipo);
                                 return (
                                     <tr key={user.id}>
-                                        <td>{user.email}</td>
                                         <td>{user.nome || '-'}</td>
+                                        <td>{user.email}</td>
                                         <td>
                                             <span className={`role-badge ${badge.class}`}>
                                                 <Shield size={14} />
