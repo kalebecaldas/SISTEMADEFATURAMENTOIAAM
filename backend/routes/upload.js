@@ -362,7 +362,7 @@ router.post('/processar', authenticateToken, requireAdmin, upload.single('planil
     };
 
     // Armazenar em arquivo temporário
-    const tempFile = path.join(__dirname, '../../uploads', `temp-${Date.now()}.json`);
+    const tempFile = path.join(__dirname, '../uploads/temp', `temp-${Date.now()}.json`);
     fs.writeFileSync(tempFile, JSON.stringify(tempData));
 
     console.log(`✅ Processamento concluído: ${novos.length} novos, ${existentes.length} existentes`);
@@ -509,7 +509,7 @@ router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Arquivo temporário não informado' });
     }
 
-    const tempPath = path.join(__dirname, '../../uploads', tempFile);
+    const tempPath = path.join(__dirname, '../uploads/temp', tempFile);
     if (!fs.existsSync(tempPath)) {
       return res.status(400).json({ error: 'Arquivo temporário não encontrado' });
     }
