@@ -41,6 +41,11 @@
     padding: 1.5rem;
     border: 2px solid transparent;
     transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 280px;
+    /* Garante altura mínima uniforme */
 }
 
 .month-card.uploaded {
@@ -235,7 +240,11 @@
 .header-stats {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
+    gap: 1.5rem;
+    max-width: 1100px;
+    /* Limita a largura para não ficar "nas pontas" */
+    margin: 0 auto;
+    /* Centraliza o bloco */
 }
 
 .stat-card {
@@ -288,6 +297,8 @@
 .month-actions {
     display: flex;
     gap: 0.75rem;
+    margin-top: auto;
+    /* Empurra os botões para baixo */
 }
 
 .btn-icon {
