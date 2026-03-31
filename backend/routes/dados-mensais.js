@@ -49,8 +49,8 @@ router.get('/resumo/:mes/:ano', authenticateToken, asyncHandler(async (req, res)
     const clt = registros.filter(r => r.tipo_colaborador === 'clt');
     const pj  = registros.filter(r => r.tipo_colaborador !== 'clt');
 
-    const soma    = (lista) => lista.reduce((s, r) => s + (r.valor_bruto  || 0), 0);
-    const somaCli = (lista) => lista.reduce((s, r) => s + (r.valor_clinica || 0), 0);
+    const soma    = (lista) => lista.reduce((s, r) => s + (parseFloat(r.valor_bruto)  || 0), 0);
+    const somaCli = (lista) => lista.reduce((s, r) => s + (parseFloat(r.valor_clinica) || 0), 0);
 
     res.json({
         mes: mesInt,

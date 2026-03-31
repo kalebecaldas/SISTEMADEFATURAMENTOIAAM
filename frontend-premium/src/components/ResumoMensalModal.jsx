@@ -8,8 +8,10 @@ import * as XLSX from 'xlsx';
 const MESES = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-const fmt = (v) =>
-  v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmt = (v) => {
+  const n = parseFloat(v);
+  return (v == null || isNaN(n)) ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 // ---------- Modal de edição de registro ----------
 const ESPECIALIDADES_COM_FIXO_PJ = ['RPG', 'Fisio', 'Acupuntura', 'Neuro', 'Acup', 'SJFisio', 'SJAcup', 'SJRPG'];
@@ -214,9 +216,9 @@ const ModalEdicaoRegistro = ({ registro, onClose, onSalvo }) => {
 // ---------- Tabela de profissionais ----------
 const TabelaResumo = ({ registros, tipo, onEditar }) => {
   const isClt = tipo === 'clt';
-  const totalCli = registros.reduce((s, r) => s + (r.valor_clinica || 0), 0);
-  const totalExtras = registros.reduce((s, r) => s + (r.extras || 0), 0);
-  const totalBruto = registros.reduce((s, r) => s + (r.valor_bruto || 0), 0);
+  const totalCli = registros.reduce((s, r) => s + (parseFloat(r.valor_clinica) || 0), 0);
+  const totalExtras = registros.reduce((s, r) => s + (parseFloat(r.extras) || 0), 0);
+  const totalBruto = registros.reduce((s, r) => s + (parseFloat(r.valor_bruto) || 0), 0);
 
   return (
     <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid var(--border-color, #2d2d3f)' }}>
@@ -345,10 +347,10 @@ const registroParaLinha = (r) => [
 
 const linhaTotal = (lista) => [
   `TOTAL (${lista.length} profissional(is))`, '', '', '',
-  Number(lista.reduce((s, r) => s + (r.valor_clinica || 0), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+  Number(lista.reduce((s, r) => s + (parseFloat(r.valor_clinica) || 0), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
   '', '', '', '',
-  Number(lista.reduce((s, r) => s + (r.extras || 0), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-  Number(lista.reduce((s, r) => s + (r.valor_bruto || 0), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+  Number(lista.reduce((s, r) => s + (parseFloat(r.extras) || 0), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+  Number(lista.reduce((s, r) => s + (parseFloat(r.valor_bruto) || 0), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
 ];
 
 // ---------- Exportar PDF ----------
