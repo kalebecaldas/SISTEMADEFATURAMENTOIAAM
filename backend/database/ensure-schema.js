@@ -108,6 +108,14 @@ async function ensureSchema() {
                 table.decimal('valor_editado', 10, 2);
                 table.boolean('foi_editado').defaultTo(false);
                 table.text('motivo_edicao');
+                table.decimal('meta_mensal', 10, 2);
+                table.decimal('valor_clinica_meta', 10, 2);
+                table.decimal('valor_prof_part_oab', 10, 2);
+                table.decimal('extras', 10, 2).defaultTo(0);
+                table.string('turno', 50);
+                table.boolean('turno_manha').defaultTo(false);
+                table.boolean('turno_tarde').defaultTo(false);
+                table.text('observacoes_edicao');
 
                 // Outros campos
                 table.integer('faltas').defaultTo(0);
@@ -138,7 +146,15 @@ async function ensureSchema() {
                 'valor_original': 'decimal',
                 'valor_editado': 'decimal',
                 'foi_editado': 'boolean',
-                'motivo_edicao': 'text'
+                'motivo_edicao': 'text',
+                'meta_mensal': 'decimal',
+                'valor_clinica_meta': 'decimal',
+                'valor_prof_part_oab': 'decimal',
+                'extras': 'decimal',
+                'turno': 'string',
+                'turno_manha': 'boolean',
+                'turno_tarde': 'boolean',
+                'observacoes_edicao': 'text'
             };
 
             for (const [coluna, tipo] of Object.entries(colunasNecessarias)) {
