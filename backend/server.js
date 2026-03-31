@@ -60,13 +60,26 @@ try {
 const app = express();
 const server = http.createServer(app);
 
-// Configurar origens permitidas
-const allowedOrigins = [
-  "http://localhost:3001",
-  "http://localhost:3000",
-  "http://localhost:5173",
-  process.env.FRONTEND_URL
-].filter(Boolean); // Remove undefined
+// Origens CORS: localhost + FRONTEND_URL + CORS_ORIGINS (lista separada por vírgula)
+function buildAllowedOrigins() {
+  const list = [
+    'http://localhost:3001',
+    'http://localhost:3000',
+    'http://localhost:5173',
+  ];
+  if (process.env.FRONTEND_URL) {
+    list.push(process.env.FRONTEND_URL.replace(/\/$/, '').trim());
+  }
+  if (process.env.CORS_ORIGINS) {
+    process.env.CORS_ORIGINS.split(',')
+      .map((o) => o.replace(/\/$/, '').trim())
+      .filter(Boolean)
+      .forEach((o) => list.push(o));
+  }
+  return [...new Set(list)];
+}
+
+const allowedOrigins = buildAllowedOrigins();
 
 const io = socketIo(server, {
   cors: {
@@ -248,6 +261,7 @@ initDatabase().then(() => {
       }
     });
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`🌐 CORS: ${allowedOrigins.length} origem(ns) — ${allowedOrigins.join(', ')}`);
     console.log(`📱 API disponível em: http://localhost:${PORT}`);
     console.log(`🔌 WebSockets habilitados`);
     console.log(`🔐 Admin padrão: admin@sistema.com / admin123`);

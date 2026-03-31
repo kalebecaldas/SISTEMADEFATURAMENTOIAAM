@@ -87,7 +87,7 @@ async function limparVinculosIndefinidosRedundantes() {
     const afetados = await db.raw(`
       SELECT COUNT(*) as total FROM prestador_vinculos
       WHERE turno = 'INDEFINIDO'
-        AND ativo = 1
+        AND ativo IS TRUE
         AND EXISTS (
           SELECT 1 FROM prestador_vinculos pv2
           WHERE pv2.prestador_id  = prestador_vinculos.prestador_id
@@ -95,11 +95,12 @@ async function limparVinculosIndefinidosRedundantes() {
             AND pv2.unidade       = prestador_vinculos.unidade
             AND pv2.tipo_contrato = prestador_vinculos.tipo_contrato
             AND pv2.turno NOT IN ('INDEFINIDO')
-            AND pv2.ativo = 1
+            AND pv2.ativo IS TRUE
         )
     `);
 
-    const total = afetados[0]?.total ?? afetados?.total ?? 0;
+    const rows = afetados.rows ?? (Array.isArray(afetados) ? afetados : []);
+    const total = Number(rows[0]?.total ?? 0);
 
     if (total === 0) {
       console.log('ℹ️  Nenhum vínculo INDEFINIDO redundante encontrado — limpeza não necessária');
@@ -107,9 +108,9 @@ async function limparVinculosIndefinidosRedundantes() {
     }
 
     await db.raw(`
-      UPDATE prestador_vinculos SET ativo = 0
+      UPDATE prestador_vinculos SET ativo = false
       WHERE turno = 'INDEFINIDO'
-        AND ativo = 1
+        AND ativo IS TRUE
         AND EXISTS (
           SELECT 1 FROM prestador_vinculos pv2
           WHERE pv2.prestador_id  = prestador_vinculos.prestador_id
@@ -117,7 +118,7 @@ async function limparVinculosIndefinidosRedundantes() {
             AND pv2.unidade       = prestador_vinculos.unidade
             AND pv2.tipo_contrato = prestador_vinculos.tipo_contrato
             AND pv2.turno NOT IN ('INDEFINIDO')
-            AND pv2.ativo = 1
+            AND pv2.ativo IS TRUE
         )
     `);
 
@@ -171,7 +172,7 @@ async function criarVinculosCLTIniciais() {
           especialidade: prof.especialidade,
           unidade: prof.unidade,
           turno: prof.turno,
-          ativo: 1,
+          ativo: true,
         })
         .first();
 
@@ -189,12 +190,12 @@ async function criarVinculosCLTIniciais() {
           unidade: prof.unidade,
           turno: prof.turno,
         })
-        .where('ativo', 0)
+        .where('ativo', false)
         .first();
 
       if (vinculoInativo) {
         await db('prestador_vinculos').where('id', vinculoInativo.id).update({
-          ativo: 1,
+          ativo: true,
           valor_fixo_base: prof.valor_fixo_base,
           meta_mensal: prof.meta_mensal,
         });
@@ -214,7 +215,7 @@ async function criarVinculosCLTIniciais() {
         valor_fixo_base:    prof.valor_fixo_base,
         desconto_por_falta: 20,
         meta_mensal:        prof.meta_mensal,
-        ativo:              1,
+        ativo:              true,
       });
 
       // Atualizar tipo_colaborador do usuario para 'clt'
