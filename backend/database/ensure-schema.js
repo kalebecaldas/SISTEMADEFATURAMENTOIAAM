@@ -127,7 +127,7 @@ async function ensureSchema() {
 
                 table.foreign('prestador_id').references('id').inTable('usuarios').onDelete('CASCADE');
                 table.foreign('vinculo_id').references('id').inTable('prestador_vinculos').onDelete('SET NULL');
-                table.unique(['prestador_id', 'vinculo_id', 'mes', 'ano']);
+                table.unique(['vinculo_id', 'mes', 'ano', 'turno']);
                 table.index(['mes', 'ano']);
             });
             console.log('✅ Tabela dados_mensais criada (COMPLETA)');
@@ -174,6 +174,32 @@ async function ensureSchema() {
                         }
                     });
                     console.log(`  ✅ Coluna ${coluna} adicionada em dados_mensais`);
+                }
+            }
+
+            // Garantir UNIQUE (vinculo_id, mes, ano, turno) no PostgreSQL
+            // Sem essa constraint o ON CONFLICT da rota /confirmar falha
+            const clientName = (db.client && db.client.config && db.client.config.client) || '';
+            const isPg = clientName === 'pg' || clientName === 'postgres' || clientName === 'postgresql';
+            if (isPg) {
+                try {
+                    // Remover possíveis constraints antigas que conflitam com a nova
+                    await db.raw(`
+                        ALTER TABLE dados_mensais
+                        DROP CONSTRAINT IF EXISTS dados_mensais_prestador_id_vinculo_id_mes_ano_unique
+                    `).catch(() => {});
+                    await db.raw(`
+                        DROP INDEX IF EXISTS dados_mensais_prestador_id_vinculo_id_mes_ano_unique
+                    `).catch(() => {});
+
+                    // Criar índice único que o ON CONFLICT espera
+                    await db.raw(`
+                        CREATE UNIQUE INDEX IF NOT EXISTS dados_mensais_vinculo_mes_ano_turno_unique
+                        ON dados_mensais (vinculo_id, mes, ano, turno)
+                    `);
+                    console.log('  ✅ Índice UNIQUE (vinculo_id, mes, ano, turno) garantido em dados_mensais');
+                } catch (e) {
+                    console.warn('  ⚠️  Não foi possível criar índice UNIQUE em dados_mensais:', e.message);
                 }
             }
         }
