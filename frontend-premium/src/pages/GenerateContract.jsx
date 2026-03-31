@@ -46,7 +46,7 @@ const GenerateContract = () => {
             // Se houver erro de autenticação ou outro problema, os arrays ficam vazios
             setPrestadores([]);
             setModelos([]);
-            
+
             // Mostrar mensagem de erro se for problema de autenticação
             if (error.response?.status === 401 || error.response?.status === 403) {
                 console.error('Erro de autenticação ao carregar prestadores');

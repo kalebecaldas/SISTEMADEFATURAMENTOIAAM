@@ -64,6 +64,12 @@ const initDatabase = async () => {
     const { adicionarTipoContratoVinculos } = require('./migrations/adicionar_tipo_contrato_vinculos');
     await adicionarTipoContratoVinculos();
 
+    // Módulo Calcular Pagamentos: comissoes_tabela, mapeamento_nomes, valor_fixo_base
+    const { migrarCalculoAtendimentos, limparVinculosIndefinidosRedundantes, criarVinculosCLTIniciais } = require('./migrations/calculo_atendimentos');
+    await migrarCalculoAtendimentos();
+    await limparVinculosIndefinidosRedundantes();
+    await criarVinculosCLTIniciais();
+
     // Garantir que admin existe (executado sempre)
     const bcrypt = require('bcryptjs');
     const adminEmail = 'kalebe.caldas@hotmail.com';

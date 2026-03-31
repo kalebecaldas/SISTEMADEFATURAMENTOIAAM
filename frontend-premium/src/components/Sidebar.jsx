@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Upload, FileText, Users, Settings, LogOut, DollarSign, UserCog, Menu, X, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Upload, FileText, Users, Settings, LogOut, DollarSign, UserCog, Menu, X, Sun, Moon, Calculator, Stethoscope } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import '../styles/Sidebar.css';
 
@@ -15,7 +15,9 @@ const Sidebar = () => {
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         { icon: Users, label: 'Colaboradores', path: '/colaboradores' },
         { icon: DollarSign, label: 'Financeiro', path: '/financeiro' },
+        { icon: Calculator, label: 'Calcular Pagamentos', path: '/calcular-pagamentos' },
         { icon: LayoutDashboard, label: 'Relatórios', path: '/relatorios' },
+        { icon: Stethoscope, label: 'Especialidades', path: '/especialidades' },
         { icon: UserCog, label: 'Usuários', path: '/usuarios' },
         { icon: Settings, label: 'Configurações', path: '/settings' },
     ];
@@ -84,22 +86,33 @@ const Sidebar = () => {
                 </nav>
 
                 <div className="sidebar-footer">
-                    <div className="user-info" style={{ padding: '0 1rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        <div style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{user.nome}</div>
-                        <div>
+                    <div className="user-info" style={{
+                        padding: '0.4rem 0.75rem 0.6rem',
+                        fontSize: '0.68rem',
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        flexWrap: 'wrap',
+                    }}>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 600, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={user.nome}>
+                            {user.nome || 'Usuário'}
+                        </span>
+                        <span style={{ opacity: 0.7 }}>·</span>
+                        <span>
                             {user.tipo === 'master' && 'Master'}
-                            {user.tipo === 'admin' && 'Administrador'}
+                            {user.tipo === 'admin' && 'Admin'}
                             {user.tipo === 'prestador' && 'Prestador'}
-                        </div>
+                        </span>
                     </div>
 
                     <button
                         className="nav-item theme-toggle-btn"
                         onClick={toggleTheme}
-                        style={{ marginBottom: '0.5rem' }}
+                        style={{ marginBottom: '0.35rem', padding: '0.5rem 0.75rem', fontSize: '0.78rem' }}
                     >
-                        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                        <span>{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
+                        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                        <span>{theme === 'dark' ? 'Claro' : 'Escuro'}</span>
                     </button>
 
                     <button
@@ -109,8 +122,9 @@ const Sidebar = () => {
                             localStorage.removeItem('user');
                             window.location.href = '/login';
                         }}
+                        style={{ padding: '0.5rem 0.75rem', fontSize: '0.78rem' }}
                     >
-                        <LogOut size={20} />
+                        <LogOut size={16} />
                         <span>Sair</span>
                     </button>
                 </div>

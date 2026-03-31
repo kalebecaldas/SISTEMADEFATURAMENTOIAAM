@@ -21,6 +21,8 @@ import ContractsHub from './pages/ContractsHub';
 import FinanceHub from './pages/FinanceHub';
 import Users from './pages/Users';
 import MyContracts from './pages/MyContracts';
+import CalcularPagamentos from './pages/CalcularPagamentos';
+import EspecialidadesAdmin from './pages/EspecialidadesAdmin';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -77,6 +79,11 @@ function App() {
               <FinanceHub />
             </ProtectedRoute>
           } />
+          <Route path="calcular-pagamentos" element={
+            <ProtectedRoute allowedRoles={['admin', 'master']}>
+              <CalcularPagamentos />
+            </ProtectedRoute>
+          } />
           <Route path="notas-dashboard" element={
             <ProtectedRoute allowedRoles={['admin', 'master']}>
               <InvoiceDashboard />
@@ -95,6 +102,11 @@ function App() {
           <Route path="usuarios" element={
             <ProtectedRoute allowedRoles={['admin', 'master']}>
               <Users />
+            </ProtectedRoute>
+          } />
+          <Route path="especialidades" element={
+            <ProtectedRoute allowedRoles={['admin', 'master']}>
+              <EspecialidadesAdmin />
             </ProtectedRoute>
           } />
           <Route path="settings" element={<Settings />} />

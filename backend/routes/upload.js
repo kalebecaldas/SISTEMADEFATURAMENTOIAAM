@@ -149,7 +149,7 @@ router.get('/verificar/:mes/:ano', authenticateToken, requireAdmin, async (req, 
         colaboradores: parseInt(dadosCLT.prestadores) || 0,
         valor_total: parseFloat(dadosCLT.valor_total) || 0,
         periodo: {
-          inicio: 1,
+          inicio: 26,
           fim: 25
         }
       },
@@ -194,7 +194,7 @@ router.post('/processar', authenticateToken, requireAdmin, upload.single('planil
     const ultimoDiaMes = new Date(anoInt, mesInt, 0).getDate();
 
     const periodo = tipo_colaborador === 'clt'
-      ? { inicio: 1, fim: 25 }
+      ? { inicio: 26, fim: 25 }
       : { inicio: 1, fim: ultimoDiaMes };
 
     console.log(`\n📊 PROCESSANDO PLANILHA: ${mes}/${ano} - ${tipo_colaborador.toUpperCase()}`);

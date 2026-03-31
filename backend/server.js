@@ -45,7 +45,9 @@ const confirmacaoRoutes = require('./routes/confirmacao');
 const pagamentosRoutes = require('./routes/pagamentos');
 const dadosMensaisRoutes = require('./routes/dados-mensais');
 const relatoriosRoutes = require('./routes/relatorios');
+const atendimentosRoutes = require('./routes/atendimentos');
 const usersRoutes = require('./routes/users');
+const especialidadesRoutes = require('./routes/especialidades');
 
 // Validar variáveis de ambiente
 try {
@@ -158,6 +160,8 @@ app.use('/api/pagamentos', pagamentosRoutes);
 app.use('/api/dados-mensais', dadosMensaisRoutes);
 app.use('/api/relatorios', relatoriosRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/atendimentos', atendimentosRoutes);
+app.use('/api/especialidades', especialidadesRoutes);
 app.use('/api', apiRoutes);
 
 // Rota de teste

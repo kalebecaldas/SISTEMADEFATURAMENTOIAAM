@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Upload as UploadIcon, CheckCircle, AlertTriangle, X, Trash2, Edit, Calendar, Users, Briefcase, TrendingUp } from 'lucide-react';
+import { Upload as UploadIcon, CheckCircle, AlertTriangle, X, Trash2, Edit, Calendar, Users, Briefcase, TrendingUp, BarChart2 } from 'lucide-react';
 import api from '../services/api';
 import UploadConfirmationModal from '../components/UploadConfirmationModal';
+import ResumoMensalModal from '../components/ResumoMensalModal';
 import '../styles/Upload.css';
 
 const UploadPage = () => {
@@ -18,6 +19,7 @@ const UploadPage = () => {
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [overwriteMode, setOverwriteMode] = useState(false);
+    const [resumoModal, setResumoModal] = useState(null); // { mes, ano }
 
     const meses = [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -254,13 +256,24 @@ const UploadPage = () => {
                                 <div className="month-header">
                                     <div>
                                         <h3>{meses[monthData.mes - 1]}</h3>
-                                        <span className={`status-badge ${hasAny ? 'success' : 'pending'}`}>
-                                            {hasAny ? (
-                                                <><CheckCircle size={14} /> Enviado</>
-                                            ) : (
-                                                <><AlertTriangle size={14} /> Pendente</>
-                                            )}
-                                        </span>
+                                        {!hasAny ? (
+                                            <span className="status-badge pending">
+                                                <AlertTriangle size={14} /> Pendente
+                                            </span>
+                                        ) : (
+                                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.3rem' }}>
+                                                {hasPrestadores && (
+                                                    <span className="status-badge success" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
+                                                        <CheckCircle size={11} /> PJ
+                                                    </span>
+                                                )}
+                                                {hasCLT && (
+                                                    <span className="status-badge success" style={{ fontSize: '0.68rem', padding: '2px 8px', background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(34,197,94,0.3)' }}>
+                                                        <CheckCircle size={11} /> CLT
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -269,16 +282,18 @@ const UploadPage = () => {
                                     <button
                                         className={`tab-btn ${getActiveTab(monthData.mes) === 'prestador' ? 'active' : ''}`}
                                         onClick={() => setActiveTab(monthData.mes, 'prestador')}
+                                        style={hasPrestadores && getActiveTab(monthData.mes) !== 'prestador' ? { borderColor: 'rgba(34,197,94,0.4)' } : {}}
                                     >
                                         <Users size={14} />
-                                        Prestadores
+                                        PJ{hasPrestadores ? ' ✓' : ''}
                                     </button>
                                     <button
                                         className={`tab-btn ${getActiveTab(monthData.mes) === 'clt' ? 'active' : ''}`}
                                         onClick={() => setActiveTab(monthData.mes, 'clt')}
+                                        style={hasCLT && getActiveTab(monthData.mes) !== 'clt' ? { borderColor: 'rgba(34,197,94,0.4)' } : {}}
                                     >
                                         <Briefcase size={14} />
-                                        CLT
+                                        CLT{hasCLT ? ' ✓' : ''}
                                     </button>
                                     <button
                                         className={`tab-btn ${getActiveTab(monthData.mes) === 'consolidado' ? 'active' : ''}`}
@@ -318,12 +333,20 @@ const UploadPage = () => {
 
                                                 <div className="month-actions">
                                                     <button
+                                                        className="btn-icon btn-primary"
+                                                        onClick={() => setResumoModal({ mes: monthData.mes, ano: year })}
+                                                        title="Ver resumo detalhado"
+                                                    >
+                                                        <BarChart2 size={18} />
+                                                        Resumo
+                                                    </button>
+                                                    <button
                                                         className="btn-icon btn-warning"
                                                         onClick={() => handleEditClick(monthData.mes, 'prestador')}
-                                                        title="Reenviar/Editar"
+                                                        title="Substituir planilha inteira"
                                                     >
                                                         <Edit size={18} />
-                                                        Editar
+                                                        Substituir
                                                     </button>
                                                     <button
                                                         className="btn-icon btn-danger"
@@ -376,12 +399,20 @@ const UploadPage = () => {
 
                                                 <div className="month-actions">
                                                     <button
+                                                        className="btn-icon btn-primary"
+                                                        onClick={() => setResumoModal({ mes: monthData.mes, ano: year })}
+                                                        title="Ver resumo detalhado"
+                                                    >
+                                                        <BarChart2 size={18} />
+                                                        Resumo
+                                                    </button>
+                                                    <button
                                                         className="btn-icon btn-warning"
                                                         onClick={() => handleEditClick(monthData.mes, 'clt')}
-                                                        title="Reenviar/Editar"
+                                                        title="Substituir planilha inteira"
                                                     >
                                                         <Edit size={18} />
-                                                        Editar
+                                                        Substituir
                                                     </button>
                                                     <button
                                                         className="btn-icon btn-danger"
@@ -408,28 +439,57 @@ const UploadPage = () => {
                                 )}
 
                                 {getActiveTab(monthData.mes) === 'consolidado' && hasAny && (
-                                    <div className="month-stats">
-                                        <div className="stat">
-                                            <span className="stat-label">Total Registros</span>
-                                            <span className="stat-value">{monthData.consolidado.total_registros}</span>
+                                    <>
+                                        <div className="month-stats">
+                                            <div className="stat">
+                                                <span className="stat-label">Total Registros</span>
+                                                <span className="stat-value">{monthData.consolidado.total_registros}</span>
+                                            </div>
+                                            <div className="stat">
+                                                <span className="stat-label">Total Colaboradores</span>
+                                                <span className="stat-value">{monthData.consolidado.total_colaboradores}</span>
+                                            </div>
+                                            <div className="stat">
+                                                <span className="stat-label">Valor Total</span>
+                                                <span className="stat-value">{formatCurrency(monthData.consolidado.valor_total)}</span>
+                                            </div>
+                                            <div className="stat">
+                                                <span className="stat-label">Detalhamento</span>
+                                                <span className="stat-value-small">
+                                                    {hasPrestadores && `${monthData.prestadores.colaboradores} Prestadores`}
+                                                    {hasPrestadores && hasCLT && ' + '}
+                                                    {hasCLT && `${monthData.clt.colaboradores} CLT`}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="stat">
-                                            <span className="stat-label">Total Colaboradores</span>
-                                            <span className="stat-value">{monthData.consolidado.total_colaboradores}</span>
+                                        <div className="month-actions" style={{ flexDirection: 'column', gap: '0.5rem' }}>
+                                            <button
+                                                className="btn-icon btn-primary full-width"
+                                                onClick={() => setResumoModal({ mes: monthData.mes, ano: year })}
+                                            >
+                                                <BarChart2 size={18} />
+                                                Ver Resumo Detalhado
+                                            </button>
+                                            <button
+                                                className="btn-icon btn-danger full-width"
+                                                onClick={async () => {
+                                                    if (!window.confirm(`Apagar TODOS os dados de ${meses[monthData.mes - 1]}/${year} (CLT + PJ)?`)) return;
+                                                    setLoading(true);
+                                                    try {
+                                                        await api.delete(`/upload/deletar/${monthData.mes}/${year}`);
+                                                        await loadMonthsData();
+                                                    } catch (e) {
+                                                        alert('Erro ao apagar: ' + (e.response?.data?.error || e.message));
+                                                    } finally {
+                                                        setLoading(false);
+                                                    }
+                                                }}
+                                            >
+                                                <Trash2 size={18} />
+                                                Apagar Tudo (CLT + PJ)
+                                            </button>
                                         </div>
-                                        <div className="stat">
-                                            <span className="stat-label">Valor Total</span>
-                                            <span className="stat-value">{formatCurrency(monthData.consolidado.valor_total)}</span>
-                                        </div>
-                                        <div className="stat">
-                                            <span className="stat-label">Detalhamento</span>
-                                            <span className="stat-value-small">
-                                                {hasPrestadores && `${monthData.prestadores.colaboradores} Prestadores`}
-                                                {hasPrestadores && hasCLT && ' + '}
-                                                {hasCLT && `${monthData.clt.colaboradores} CLT`}
-                                            </span>
-                                        </div>
-                                    </div>
+                                    </>
                                 )}
                             </div>
                         );
@@ -498,6 +558,15 @@ const UploadPage = () => {
                 onConfirm={handleConfirm}
                 data={confirmationData}
             />
+
+            {/* Modal de Resumo Mensal — estilo planilha CLT + PJ */}
+            {resumoModal && (
+                <ResumoMensalModal
+                    mes={resumoModal.mes}
+                    ano={resumoModal.ano}
+                    onClose={() => setResumoModal(null)}
+                />
+            )}
         </>
     );
 };

@@ -18,11 +18,14 @@
 
 .layout {
     display: flex;
+    width: 100%;
     min-height: 100vh;
+    overflow-x: hidden; /* evita scroll horizontal no nível de página */
 }
 
 .main-content {
     flex: 1;
+    min-width: 0; /* impede que o flex item expanda além do viewport e quebre o overflow dos filhos */
     margin-left: 260px;
     padding: 2rem;
     min-height: 100vh;

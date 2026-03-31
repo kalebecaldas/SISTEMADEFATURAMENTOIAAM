@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Award, BarChart3, Download, FileText } from 'lucide-react';
+import { TrendingUp, Award, BarChart3, Download, FileText, Sun, Moon, Shuffle } from 'lucide-react';
 import api from '../services/api';
 import CustomReportModal from '../components/CustomReportModal';
 import '../styles/AdvancedReports.css';
+
+const MESES_NOMES = {
+    1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr',
+    5: 'Mai', 6: 'Jun', 7: 'Jul', 8: 'Ago',
+    9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
+};
 
 const AdvancedReports = () => {
     const [stats, setStats] = useState(null);
@@ -11,6 +17,11 @@ const AdvancedReports = () => {
     const [ano, setAno] = useState(new Date().getFullYear());
     const [loading, setLoading] = useState(false);
     const [showCustomReport, setShowCustomReport] = useState(false);
+
+    const [turnosAno, setTurnosAno] = useState(new Date().getFullYear());
+    const [turnosData, setTurnosData] = useState(null);
+    const [turnosLoading, setTurnosLoading] = useState(false);
+    const [turnosFiltro, setTurnosFiltro] = useState('todos'); // todos | variados | manha | tarde
 
     useEffect(() => {
         fetchStats();
@@ -40,6 +51,22 @@ const AdvancedReports = () => {
             console.error('Erro ao buscar ranking:', error);
         }
     };
+
+    const fetchTurnos = async (anoParam) => {
+        setTurnosLoading(true);
+        try {
+            const response = await api.get(`/dados-mensais/relatorio-turnos/${anoParam}`);
+            setTurnosData(response.data);
+        } catch (error) {
+            console.error('Erro ao buscar relatório de turnos:', error);
+        } finally {
+            setTurnosLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchTurnos(turnosAno);
+    }, [turnosAno]);
 
     const formatCurrency = (value) => {
         return new Intl.NumberFormat('pt-BR', {
@@ -194,6 +221,113 @@ const AdvancedReports = () => {
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+
+                    {/* Relatório de Turnos Anual */}
+                    <div className="section">
+                        <h2>🕐 Relatório de Turnos por Profissional</h2>
+                        <div className="filters glass-card" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                            <div className="filter-group">
+                                <label>Ano:</label>
+                                <select value={turnosAno} onChange={(e) => setTurnosAno(parseInt(e.target.value))}>
+                                    {[2024, 2025, 2026].map(y => (
+                                        <option key={y} value={y}>{y}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="filter-group">
+                                <label>Filtrar:</label>
+                                <select value={turnosFiltro} onChange={(e) => setTurnosFiltro(e.target.value)}>
+                                    <option value="todos">Todos</option>
+                                    <option value="variados">Com variação de turno</option>
+                                    <option value="manha">Predominantemente Manhã</option>
+                                    <option value="tarde">Predominantemente Tarde</option>
+                                    <option value="ambos">Trabalhou em ambos</option>
+                                </select>
+                            </div>
+                            {turnosData && (
+                                <span style={{ fontSize: '0.85rem', color: '#888', marginLeft: 'auto' }}>
+                                    {turnosData.total} profissional(ais) em {turnosAno}
+                                </span>
+                            )}
+                        </div>
+
+                        {turnosLoading ? (
+                            <div className="loading" style={{ padding: '2rem', textAlign: 'center' }}>Carregando turnos...</div>
+                        ) : turnosData && (() => {
+                            const profissionais = turnosData.profissionais.filter(p => {
+                                const mesesAtivos = Object.values(p.meses);
+                                if (turnosFiltro === 'todos') return true;
+                                const turnos = new Set(mesesAtivos.map(m => m.turno));
+                                if (turnosFiltro === 'variados') return turnos.size > 1 || turnos.has('AMBOS');
+                                if (turnosFiltro === 'ambos') return [...turnos].some(t => t === 'AMBOS');
+                                if (turnosFiltro === 'manha') {
+                                    const all = mesesAtivos.map(m => m.turno);
+                                    return all.some(t => t === 'MANHÃ') && !all.some(t => t === 'TARDE');
+                                }
+                                if (turnosFiltro === 'tarde') {
+                                    const all = mesesAtivos.map(m => m.turno);
+                                    return all.some(t => t === 'TARDE') && !all.some(t => t === 'MANHÃ');
+                                }
+                                return true;
+                            });
+
+                            const mesesDisponiveis = [...new Set(
+                                profissionais.flatMap(p => Object.keys(p.meses).map(Number))
+                            )].sort((a, b) => a - b);
+
+                            const celulaTurno = (info) => {
+                                if (!info) return <td key="vazio" style={{ background: '#1a1a2e', color: '#444', textAlign: 'center', fontSize: '0.75rem' }}>—</td>;
+                                const turno = info.turno || 'integral';
+                                let bg, icon, label;
+                                if (turno === 'MANHÃ') { bg = 'rgba(255,196,0,0.15)'; icon = '🌅'; label = 'M'; }
+                                else if (turno === 'TARDE') { bg = 'rgba(100,149,237,0.15)'; icon = '🌇'; label = 'T'; }
+                                else if (turno === 'AMBOS') { bg = 'rgba(150,100,220,0.15)'; icon = '↕️'; label = 'A'; }
+                                else { bg = 'transparent'; icon = ''; label = '?'; }
+                                return (
+                                    <td key={turno} style={{ background: bg, textAlign: 'center', fontSize: '0.85rem', fontWeight: 600 }}
+                                        title={`${turno}\nManhã: ${info.turno_manha ? 'Sim' : 'Não'} | Tarde: ${info.turno_tarde ? 'Sim' : 'Não'}`}>
+                                        {icon} {label}
+                                    </td>
+                                );
+                            };
+
+                            return (
+                                <div className="glass-card" style={{ overflowX: 'auto' }}>
+                                    {profissionais.length === 0 ? (
+                                        <p style={{ padding: '1.5rem', color: '#888', textAlign: 'center' }}>Nenhum profissional encontrado com esse filtro.</p>
+                                    ) : (
+                                        <table className="data-table" style={{ minWidth: '700px' }}>
+                                            <thead>
+                                                <tr>
+                                                    <th>Profissional</th>
+                                                    <th>Especialidade</th>
+                                                    <th>Unidade</th>
+                                                    {mesesDisponiveis.map(m => (
+                                                        <th key={m} style={{ textAlign: 'center', minWidth: '52px' }}>{MESES_NOMES[m]}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {profissionais.map((p, i) => (
+                                                    <tr key={`${p.prestador_id}-${p.especialidade}-${p.unidade}-${i}`}>
+                                                        <td style={{ fontWeight: 500 }}>{p.nome}</td>
+                                                        <td>{p.especialidade}</td>
+                                                        <td>{p.unidade}</td>
+                                                        {mesesDisponiveis.map(m => celulaTurno(p.meses[m]))}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                    <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid #2a2a3a', fontSize: '0.78rem', color: '#888', display: 'flex', gap: '1.5rem' }}>
+                                        <span>🌅 M = Manhã</span>
+                                        <span>🌇 T = Tarde</span>
+                                        <span>↕️ A = Ambos os turnos</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     {/* Info */}
