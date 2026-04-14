@@ -47,6 +47,15 @@ async function ensureSchema() {
                     console.log(`  ✅ Coluna ${col} adicionada em usuarios`);
                 }
             }
+
+            // tipo_colaborador em usuarios (PJ/CLT/prestador_servico) — usado no cadastro rápido e edição
+            const hasTipoColaboradorUsuario = await db.schema.hasColumn('usuarios', 'tipo_colaborador');
+            if (!hasTipoColaboradorUsuario) {
+                await db.schema.table('usuarios', (table) => {
+                    table.string('tipo_colaborador', 30).defaultTo('prestador_servico');
+                });
+                console.log('  ✅ Coluna tipo_colaborador adicionada em usuarios');
+            }
         }
 
         // ========================================

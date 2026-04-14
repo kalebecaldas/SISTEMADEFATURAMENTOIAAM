@@ -416,7 +416,7 @@ router.post('/prestadores/cadastro-rapido', authenticateToken, requireAdmin, asy
       const senhaTemp = Math.random().toString(36).slice(-8);
       const senhaHash = bcrypt.hashSync(senhaTemp, 10);
 
-      const [id] = await db('usuarios').insert({
+      const insertResult = await db('usuarios').insert({
         nome: nome.trim(),
         email: emailFinal,
         senha: senhaHash,
@@ -424,12 +424,17 @@ router.post('/prestadores/cadastro-rapido', authenticateToken, requireAdmin, asy
         tipo_colaborador: tipo_contrato === 'clt' ? 'clt' : 'pj',
         ativo: true,
         cadastro_confirmado: true,
-      });
-      usuario = await db('usuarios').where('id', id).first();
+      }).returning('id');
+
+      let newUserId = Array.isArray(insertResult) ? insertResult[0] : insertResult;
+      if (newUserId && typeof newUserId === 'object' && newUserId.id != null) {
+        newUserId = newUserId.id;
+      }
+      usuario = await db('usuarios').where('id', newUserId).first();
     }
 
     // Criar vínculo
-    const [vinculoId] = await db('prestador_vinculos').insert({
+    const vinculoInsert = await db('prestador_vinculos').insert({
       prestador_id: usuario.id,
       tipo_contrato,
       especialidade,
@@ -439,7 +444,12 @@ router.post('/prestadores/cadastro-rapido', authenticateToken, requireAdmin, asy
       valor_fixo_base: valor_fixo_base ? parseFloat(valor_fixo_base) : null,
       desconto_por_falta: 20,
       ativo: 1,
-    });
+    }).returning('id');
+
+    let vinculoId = Array.isArray(vinculoInsert) ? vinculoInsert[0] : vinculoInsert;
+    if (vinculoId && typeof vinculoId === 'object' && vinculoId.id != null) {
+      vinculoId = vinculoId.id;
+    }
 
     return res.json({
       sucesso: true,
