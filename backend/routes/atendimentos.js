@@ -12,6 +12,7 @@ const {
   detectarTipoContrato,
   detectarMesAno,
 } = require('../services/calculoAtendimentos');
+const { cadastrarPrestadorRapido } = require('../services/prestadorCadastroRapido');
 
 const router = express.Router();
 
@@ -404,59 +405,26 @@ router.post('/prestadores/cadastro-rapido', authenticateToken, requireAdmin, asy
 
     if (!nome) return res.status(400).json({ error: 'Nome é obrigatório' });
 
-    // Email gerado automaticamente se não fornecido
-    const emailFinal = email || `${nome.toLowerCase().replace(/\s+/g, '.')}@cadastro-rapido.local`;
-
-    // Verificar se já existe usuário com esse email
-    let usuario = await db('usuarios').where('email', emailFinal).first();
-
-    if (!usuario) {
-      // Criar usuário
-      const bcrypt = require('bcryptjs');
-      const senhaTemp = Math.random().toString(36).slice(-8);
-      const senhaHash = bcrypt.hashSync(senhaTemp, 10);
-
-      const insertResult = await db('usuarios').insert({
-        nome: nome.trim(),
-        email: emailFinal,
-        senha: senhaHash,
-        tipo: 'prestador',
-        tipo_colaborador: tipo_contrato === 'clt' ? 'clt' : 'pj',
-        ativo: true,
-        cadastro_confirmado: true,
-      }).returning('id');
-
-      let newUserId = Array.isArray(insertResult) ? insertResult[0] : insertResult;
-      if (newUserId && typeof newUserId === 'object' && newUserId.id != null) {
-        newUserId = newUserId.id;
-      }
-      usuario = await db('usuarios').where('id', newUserId).first();
-    }
-
-    // Criar vínculo
-    const vinculoInsert = await db('prestador_vinculos').insert({
-      prestador_id: usuario.id,
-      tipo_contrato,
+    const out = await cadastrarPrestadorRapido({
+      nome: nome.trim(),
+      email,
       especialidade,
       unidade,
       turno,
-      meta_mensal: meta_mensal ? parseFloat(meta_mensal) : null,
-      valor_fixo_base: valor_fixo_base ? parseFloat(valor_fixo_base) : null,
-      desconto_por_falta: 20,
-      ativo: 1,
-    }).returning('id');
-
-    let vinculoId = Array.isArray(vinculoInsert) ? vinculoInsert[0] : vinculoInsert;
-    if (vinculoId && typeof vinculoId === 'object' && vinculoId.id != null) {
-      vinculoId = vinculoId.id;
-    }
+      tipo_contrato,
+      meta_mensal,
+      valor_fixo_base,
+    });
 
     return res.json({
       sucesso: true,
-      prestador_id: usuario.id,
-      vinculo_id: vinculoId,
-      nome: usuario.nome,
-      especialidade, unidade, turno, tipo_contrato,
+      prestador_id: out.prestador_id,
+      vinculo_id: out.vinculo_id,
+      nome: out.nome,
+      especialidade: out.especialidade,
+      unidade: out.unidade,
+      turno: out.turno,
+      tipo_contrato: out.tipo_contrato,
     });
   } catch (error) {
     console.error('❌ Erro no cadastro rápido:', error);

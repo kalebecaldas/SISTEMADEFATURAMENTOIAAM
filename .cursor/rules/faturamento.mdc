@@ -1,0 +1,18 @@
+---
+description: Regras ao editar cálculo PJ e fluxo da planilha Atendimentos
+globs:
+  - backend/services/calculoAtendimentos.js
+  - backend/services/calculoPJCore.js
+  - backend/routes/atendimentos.js
+  - frontend-premium/src/pages/CalcularPagamentos.jsx
+  - frontend-premium/src/components/TabelaPreviewCalculo.jsx
+  - frontend-premium/src/schemas/atendimentos.ts
+  - frontend-premium/src/api/atendimentos.ts
+  - frontend-premium/src/mocks/**/*.ts
+alwaysApply: false
+---
+
+Antes de alterar fórmulas ou contratos: consultar `docs/SISTEMA-FATURAMENTO.md`.
+
+- Mudanças em `calcularValorPJ` pertencem a `backend/services/calculoPJCore.js`; manter testes em `backend/services/__tests__/calculoPJCore.test.js`.
+- Respostas JSON de `/api/atendimentos/*` devem continuar alinhadas a `frontend-premium/src/schemas/atendimentos.ts` e aos handlers MSW se existirem.

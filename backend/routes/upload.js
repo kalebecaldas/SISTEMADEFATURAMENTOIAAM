@@ -8,6 +8,8 @@ const crypto = require('crypto');
 const { db } = require('../database/init');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { normalizarUnidade } = require('../utils/unidades');
+const { cadastrarPrestadorRapido } = require('../services/prestadorCadastroRapido');
+const { calcularFinanceiroUploadLinha } = require('../services/calculoAtendimentos');
 
 const router = express.Router();
 
@@ -527,46 +529,20 @@ router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
     for (const prestador of prestadores) {
       const { email, nome, vinculos } = prestador;
 
-      // Verificar se email já existe (qualquer tipo)
       let usuario = await db('usuarios')
         .where({ email })
         .first();
 
-      // Se o usuário é admin ou master, pular
       if (usuario && (usuario.tipo === 'admin' || usuario.tipo === 'master')) {
         console.log(`⚠️  Pulando ${email} - usuário ${usuario.tipo}`);
         continue;
       }
 
-      if (!usuario) {
-        const senhaHash = bcrypt.hashSync('123456', 10);
-        const tokenConfirmacao = crypto.randomBytes(32).toString('hex');
+      const tinhaUsuarioNoBanco = !!usuario;
 
-        // Coletar todas as especialidades e unidades únicas
+      if (usuario) {
         const especialidades = [...new Set(vinculos.map(v => v.especialidade).filter(Boolean))];
         const unidades = [...new Set(vinculos.map(v => v.unidade).filter(Boolean))];
-
-        const [userId] = await db('usuarios').insert({
-          email,
-          senha: senhaHash,
-          nome,
-          tipo: 'prestador',
-          status: 'pendente',
-          cadastro_confirmado: false,
-          token_confirmacao: tokenConfirmacao,
-          especialidade: especialidades[0] || null, // Primeira especialidade
-          unidades: JSON.stringify(unidades), // Array de unidades
-          meta_mensal: vinculos[0]?.meta_mensal || null
-        }).returning('id');
-
-        usuario = { id: userId.id || userId };
-        novosUsuarios++;
-      } else {
-        // Atualizar especialidade e unidades do usuário existente
-        const especialidades = [...new Set(vinculos.map(v => v.especialidade).filter(Boolean))];
-        const unidades = [...new Set(vinculos.map(v => v.unidade).filter(Boolean))];
-
-        // Buscar unidades existentes
         const unidadesExistentes = JSON.parse(usuario.unidades || '[]');
         const todasUnidades = [...new Set([...unidadesExistentes, ...unidades])];
 
@@ -578,74 +554,116 @@ router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
           });
       }
 
+      let usuarioAtual = usuario;
+      let contouNovoUsuario = false;
+
       for (const vinculo of vinculos) {
         const { turno, especialidade, unidade, meta_mensal, valor_liquido, valor_clinica, valor_profissional, valor_fixo, faltas } = vinculo;
 
-        // Verificar se vínculo já existe (INCLUINDO tipo_contrato)
-        const vinculoExistente = await db('prestador_vinculos')
-          .where({
-            prestador_id: usuario.id,
-            tipo_contrato: tipo_colaborador || 'prestador',
-            turno,
-            especialidade,
-            unidade
-          })
-          .first();
+        let vinculoExistente = null;
+        if (usuarioAtual) {
+          vinculoExistente = await db('prestador_vinculos')
+            .where({
+              prestador_id: usuarioAtual.id,
+              tipo_contrato: tipo_colaborador || 'prestador',
+              turno,
+              especialidade,
+              unidade
+            })
+            .first();
+        }
 
         let vinculoId;
         if (!vinculoExistente) {
-          const [newVinculoId] = await db('prestador_vinculos').insert({
-            prestador_id: usuario.id,
-            tipo_contrato: tipo_colaborador || 'prestador',
-            turno,
+          const cr = await cadastrarPrestadorRapido({
+            nome,
+            email,
             especialidade,
             unidade,
+            turno,
+            tipo_contrato: tipo_colaborador || 'prestador',
             meta_mensal,
-            ativo: true
-          }).returning('id');
-
-          vinculoId = newVinculoId.id || newVinculoId;
+            valor_fixo_base: valor_fixo,
+          });
+          usuarioAtual = await db('usuarios').where('id', cr.prestador_id).first();
+          vinculoId = cr.vinculo_id;
           novosVinculos++;
+          if (!tinhaUsuarioNoBanco && !contouNovoUsuario) {
+            novosUsuarios++;
+            contouNovoUsuario = true;
+          }
         } else {
           vinculoId = vinculoExistente.id;
         }
 
-        // Verificar se já existe registro
+        const resultadoFin = await calcularFinanceiroUploadLinha({
+          tipo_colaborador: tipo_colaborador || 'prestador',
+          especialidade,
+          unidade,
+          valor_clinica,
+          valor_clinica_total: valor_clinica,
+          valor_profissional,
+          valor_fixo,
+          meta_mensal,
+          faltas: faltas || 0,
+          extras: 0,
+        });
+
+        const totalBruto = resultadoFin.total;
+        const fixoAjustado = resultadoFin.fixo_ajustado != null ? resultadoFin.fixo_ajustado : 0;
+        const metaBatida = !!resultadoFin.meta_batida;
+        const valorLiquidoFinal = totalBruto != null && !Number.isNaN(totalBruto)
+          ? totalBruto
+          : (parseFloat(valor_liquido) || 0);
+
+        let metaMensalNum = null;
+        if (meta_mensal != null && meta_mensal !== 'N/P' && meta_mensal !== 'NP' && !Number.isNaN(parseFloat(meta_mensal))) {
+          metaMensalNum = parseFloat(meta_mensal);
+        }
+
+        const temManha = turno === 'MANHÃ' ? 1 : 0;
+        const temTarde = turno === 'TARDE' ? 1 : 0;
+
         const dadoExistente = await db('dados_mensais')
-          .where({
-            vinculo_id: vinculoId,
-            mes,
-            ano
-          })
+          .where({ vinculo_id: vinculoId, mes, ano })
           .first();
 
         const dadosParaSalvar = {
-          prestador_id: usuario.id,
+          prestador_id: usuarioAtual.id,
           vinculo_id: vinculoId,
           mes,
           ano,
           tipo_colaborador: tipo_colaborador || 'prestador',
           dia_inicio: periodo?.inicio || 1,
           dia_fim: periodo?.fim || null,
-          valor_liquido,
           valor_clinica,
+          valor_clinica_meta: valor_clinica,
           valor_profissional,
-          valor_fixo,
+          valor_prof_part_oab: 0,
+          valor_bruto: totalBruto,
+          valor_original: totalBruto,
+          valor_liquido: valorLiquidoFinal,
+          valor_fixo: fixoAjustado,
+          meta_mensal: metaMensalNum,
+          meta_batida: metaBatida ? 1 : 0,
           faltas: faltas || 0,
-          meta_batida: meta_mensal ? (valor_clinica >= meta_mensal) : false
+          extras: 0,
+          especialidade,
+          unidade,
+          turno: turno || 'INDEFINIDO',
+          turno_manha: temManha,
+          turno_tarde: temTarde,
+          foi_editado: 0,
         };
 
         if (dadoExistente && sobreescrever) {
-          // Atualizar registro existente
           await db('dados_mensais')
             .where('id', dadoExistente.id)
             .update(dadosParaSalvar);
           console.log(`🔄 Atualizado: ${nome} - ${turno}`);
         } else if (!dadoExistente) {
-          // Inserir novo registro
           await db('dados_mensais').insert(dadosParaSalvar);
         } else {
-          // Registro já existe e não está em modo sobreescrever
           console.log(`⏭️  Pulado (já existe): ${nome} - ${turno}`);
           continue;
         }

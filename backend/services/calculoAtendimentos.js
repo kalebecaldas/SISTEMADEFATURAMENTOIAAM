@@ -8,6 +8,7 @@
  */
 
 const db = require('../database/connection');
+const { calcularValorPJ } = require('./calculoPJCore');
 
 // Mapeamento de nomes de clínicas do sistema para unidades internas
 const CLINICA_UNIDADE_MAP = {
@@ -270,63 +271,6 @@ function normalizarEspParaComissao(espAtend, unidade) {
   }
 
   return base;
-}
-
-/**
- * Calcula o valor bruto PJ para um grupo.
- * Regra: valor_bruto = valor_profissional (da planilha) + fixo (se tiver).
- * A planilha já traz o valor profissional correto (com % aplicada por convênio).
- * Meta serve apenas para o indicador BATEU? (meta batida ou fora).
- */
-function calcularValorPJ({ comissao, valor_clinica, valor_clinica_total, valor_profissional_atend, valor_prof_part_oab, valor_fixo_base, desconto_por_falta, meta_mensal, faltas, extras }) {
-  const faltasNum = parseInt(faltas) || 0;
-  const extrasNum = parseFloat(extras) || 0;
-  const fixoBase = parseFloat(valor_fixo_base) || 0;
-  const vp = parseFloat(valor_profissional_atend) || 0;
-  const vpPartOab = parseFloat(valor_prof_part_oab) || 0;
-
-  const pctComMeta = comissao ? (parseFloat(comissao.pct_com_meta) || 0) : 0;
-  const pctSemMeta = comissao ? (parseFloat(comissao.pct_sem_meta) || 0) : 0;
-
-  // valor_prof_sem_part_oab = VP convenios (já vem a 12% da planilha)
-  // 100% valor = valor_prof_sem_part_oab × 100 / pct_sem_meta → base para aplicar pct_com_meta na fórmula
-  const vpSemPartOab = Math.max(0, vp - vpPartOab);
-  const valor100Base = pctSemMeta > 0 ? vpSemPartOab * 100 / pctSemMeta : (parseFloat(valor_clinica) || 0);
-
-  // Meta é checada contra o TOTAL faturado (convenios + Part/OAB) — valor_clinica_total
-  const valorFaturadoTotal = parseFloat(valor_clinica_total) || parseFloat(valor_clinica) || 0;
-  const meta = parseFloat(meta_mensal) || 0;
-  const metaBatida = meta > 0 && valorFaturadoTotal >= meta;
-
-  const pctAplicado = pctComMeta > 0 || pctSemMeta > 0
-    ? (metaBatida ? pctComMeta : pctSemMeta)
-    : null;
-
-  const descontoPorFalta = fixoBase > 0 ? fixoBase / 30 : (parseFloat(desconto_por_falta) || 20);
-  let fixoAjustado = Math.max(0, fixoBase - (faltasNum * descontoPorFalta));
-  let total;
-
-  if (metaBatida && pctComMeta > 0) {
-    // ── META BATIDA: 100% valor × 14% = valor com meta ──
-    // valor100Base já derivado de (valor_prof - part/oab) × 100/12
-    // valor_com_meta = valor100Base × pct_com_meta / 100
-    const valorComMeta = valor100Base * (pctComMeta / 100);
-    total = Math.max(0, valorComMeta + vpPartOab + fixoAjustado + extrasNum);
-  } else {
-    // ── SEM META: usar valor_profissional da planilha + fixo ──
-    total = Math.max(0, vp + fixoAjustado + extrasNum);
-  }
-
-  return {
-    total,
-    meta_batida: metaBatida,
-    fixo_ajustado: fixoAjustado,
-    pct_aplicado: pctAplicado,
-    tipo_calculo: metaBatida && pctComMeta > 0
-      ? 'valor_pct_com_meta'
-      : (fixoBase > 0 ? 'valor_profissional_mais_fixo' : 'valor_profissional'),
-    valor_prof_part_oab: vpPartOab,
-  };
 }
 
 /**
@@ -770,9 +714,74 @@ async function recalcularItem(item) {
   };
 }
 
+/**
+ * Mesmas regras de Calcular Pagamentos para uma linha da planilha mensal (rotas upload).
+ */
+async function calcularFinanceiroUploadLinha(input) {
+  const tipoCollab = input.tipo_colaborador === 'clt' ? 'clt' : 'prestador';
+  const extras = parseFloat(input.extras) || 0;
+  const faltas = parseInt(input.faltas, 10) || 0;
+  const valorProfissional = parseFloat(input.valor_profissional) || 0;
+  const valorClinica = parseFloat(input.valor_clinica) || 0;
+  const valorClinicaTotal = input.valor_clinica_total != null && input.valor_clinica_total !== ''
+    ? parseFloat(input.valor_clinica_total)
+    : valorClinica;
+
+  let metaMensal = null;
+  if (input.meta_mensal != null && input.meta_mensal !== '' && input.meta_mensal !== 'N/P' && input.meta_mensal !== 'NP') {
+    const m = parseFloat(input.meta_mensal);
+    if (!Number.isNaN(m)) metaMensal = m;
+  }
+
+  const valorFixoSheet = parseFloat(input.valor_fixo) || 0;
+  const especialidade = (input.especialidade || '').trim();
+  const unidade = (input.unidade || '').trim();
+
+  if (tipoCollab === 'clt') {
+    const configCLT = await carregarConfigCLT();
+    return calcularValorCLT({
+      especialidade_vinculo: especialidade,
+      valor_clinica: valorClinica,
+      valor_profissional_atend: valorProfissional,
+      valor_fixo_base: valorFixoSheet,
+      meta_mensal: metaMensal,
+      faltas,
+      extras,
+      configCLT,
+    });
+  }
+
+  let espComissao = normalizarEspParaComissao(especialidade, unidade);
+  if (!espComissao) espComissao = especialidade || null;
+
+  let comissao = null;
+  if (espComissao) {
+    comissao = await buscarComissao(espComissao, unidade);
+  }
+
+  const ESPECIALIDADES_COM_FIXO_PJ = ['RPG', 'Fisio', 'Acup', 'Neuro', 'SJFisio', 'SJAcup', 'SJRPG'];
+  const espKey = espComissao || especialidade;
+  const temFixoPJ = espKey && ESPECIALIDADES_COM_FIXO_PJ.includes(espKey);
+  const fixoEfetivo = temFixoPJ ? valorFixoSheet : 0;
+
+  return calcularValorPJ({
+    comissao,
+    valor_clinica: valorClinica,
+    valor_clinica_total: valorClinicaTotal,
+    valor_profissional_atend: valorProfissional,
+    valor_prof_part_oab: 0,
+    valor_fixo_base: fixoEfetivo,
+    desconto_por_falta: input.desconto_por_falta != null ? input.desconto_por_falta : 20,
+    meta_mensal: metaMensal,
+    faltas,
+    extras,
+  });
+}
+
 module.exports = {
   processarAtendimentos,
   recalcularItem,
+  calcularFinanceiroUploadLinha,
   detectarTipoContrato,
   detectarMesAno,
   clinicaParaUnidade,

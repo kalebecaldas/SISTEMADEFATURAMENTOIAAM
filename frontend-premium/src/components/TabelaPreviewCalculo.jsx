@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { RefreshCw, AlertTriangle, TrendingUp, TrendingDown, UserCheck, X } from 'lucide-react';
 import api from '../services/api';
+import { parseRecalcularResponse } from '../api/atendimentos';
 
 const fmt = (v) =>
   v == null
@@ -198,7 +199,7 @@ const TabelaPreviewCalculo = ({ itens, onChange }) => {
     try {
       // tipo_contrato vem no próprio item — sem necessidade de passá-lo separado
       const res = await api.post('/atendimentos/recalcular', { item: novoItem });
-      const atualizado = res.data.item;
+      const atualizado = parseRecalcularResponse(res.data).item;
       const novos = itens.map((it, i) => (i === idx ? atualizado : it));
       onChange(novos);
     } catch (err) {

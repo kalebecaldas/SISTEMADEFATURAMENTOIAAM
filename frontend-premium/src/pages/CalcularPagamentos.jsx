@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Upload, FileSpreadsheet, AlertTriangle, CheckCircle, Calculator,
@@ -6,6 +6,7 @@ import {
   BarChart2, CreditCard, ChevronRight, ShieldAlert, Trash2, CheckSquare
 } from 'lucide-react';
 import api from '../services/api';
+import { parseAnalisarAtendimentosResponse, parsePrestadoresList } from '../api/atendimentos';
 import MapeamentoNomes from '../components/MapeamentoNomes';
 import TabelaPreviewCalculo from '../components/TabelaPreviewCalculo';
 import '../styles/CalcularPagamentos.css';
@@ -100,7 +101,7 @@ const CalcularPagamentos = () => {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      const data = res.data;
+      const data = parseAnalisarAtendimentosResponse(res.data);
       setAnalise(data);
 
       // Sincronizar mes/ano detectado se não foi forçado
@@ -112,7 +113,7 @@ const CalcularPagamentos = () => {
       const prestRes = await api.get(
         `/atendimentos/prestadores?tipo_contrato=${data.tipo_contrato}`
       );
-      setPrestadores(prestRes.data);
+      setPrestadores(parsePrestadoresList(prestRes.data));
 
       // Conflitos CLT detectados
       if (data.conflitos_clt?.length > 0) {
