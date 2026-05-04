@@ -145,7 +145,7 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
     }
 
     const { id } = req.params;
-    const { valor_clinica, faltas, valor_fixo, extras, valor_bruto, observacoes_edicao } = req.body;
+    const { valor_clinica, valor_clinica_total, faltas, valor_fixo, extras, valor_bruto, observacoes_edicao } = req.body;
 
     const registro = await db('dados_mensais as dm')
         .leftJoin('prestador_vinculos as pv', 'dm.vinculo_id', 'pv.id')
@@ -157,25 +157,34 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
         return res.status(404).json({ error: 'Registro não encontrado' });
     }
 
-    const novoValorClinica = valor_clinica !== undefined ? parseFloat(valor_clinica) : registro.valor_clinica;
-    const novasFaltas = faltas !== undefined ? parseInt(faltas) : registro.faltas;
-    const novoValorFixo = valor_fixo !== undefined ? parseFloat(valor_fixo) : registro.valor_fixo;
-    const novosExtras = extras !== undefined ? parseFloat(extras) : (registro.extras || 0);
-    const novoValorBruto = valor_bruto !== undefined ? parseFloat(valor_bruto) : registro.valor_bruto;
+    const novoValorClinica      = valor_clinica       !== undefined ? parseFloat(valor_clinica)       : (registro.valor_clinica      || 0);
+    const novoValorClinicaTotal = valor_clinica_total !== undefined ? parseFloat(valor_clinica_total) : (registro.valor_clinica_total ?? registro.valor_clinica ?? 0);
+    const novasFaltas     = faltas       !== undefined ? parseInt(faltas)       : registro.faltas;
+    const novoValorFixo   = valor_fixo   !== undefined ? parseFloat(valor_fixo)  : registro.valor_fixo;
+    const novosExtras     = extras       !== undefined ? parseFloat(extras)       : (registro.extras || 0);
+    const novoValorBruto  = valor_bruto  !== undefined ? parseFloat(valor_bruto)  : registro.valor_bruto;
 
-    // Recalcular meta_batida automaticamente
+    /**
+     * REGRA DE NEGÓCIO:
+     * CLT  → meta_batida usa faturamento total (valor_clinica_total), incluindo Part/OAB.
+     * PJ   → meta_batida usa valor_clinica (excluindo Part/OAB).
+     */
     const metaMensal = registro.meta_mensal || 0;
-    const metaBatida = metaMensal > 0 && novoValorClinica >= metaMensal ? 1 : 0;
+    const isClt = registro.tipo_colaborador === 'clt';
+    const baseParaMeta = isClt ? novoValorClinicaTotal : novoValorClinica;
+    const metaBatida = metaMensal > 0 && baseParaMeta >= metaMensal ? 1 : 0;
 
     await db('dados_mensais').where('id', id).update({
-        valor_clinica: novoValorClinica,
-        faltas: novasFaltas,
-        valor_fixo: novoValorFixo,
-        extras: novosExtras,
-        valor_bruto: novoValorBruto,
-        valor_liquido: novoValorBruto,
-        meta_batida: metaBatida,
-        foi_editado: 1,
+        valor_clinica:       novoValorClinica,
+        valor_clinica_total: novoValorClinicaTotal,
+        valor_clinica_meta:  novoValorClinica,   // campo legado PJ
+        faltas:          novasFaltas,
+        valor_fixo:      novoValorFixo,
+        extras:          novosExtras,
+        valor_bruto:     novoValorBruto,
+        valor_liquido:   novoValorBruto,
+        meta_batida:     metaBatida,
+        foi_editado:     1,
         observacoes_edicao: observacoes_edicao || registro.observacoes_edicao || null,
     });
 

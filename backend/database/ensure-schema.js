@@ -299,6 +299,120 @@ async function ensureSchema() {
             console.log('✓ Tabela comprovantes_pagamento existe');
         }
 
+        // ========================================
+        // TABELA: comissoes_tabela (PJ)
+        // ========================================
+        const hasComissoes = await db.schema.hasTable('comissoes_tabela');
+        if (!hasComissoes) {
+            await db.schema.createTable('comissoes_tabela', (table) => {
+                table.increments('id').primary();
+                table.string('especialidade', 100).notNullable();
+                table.string('unidade', 100).notNullable();
+                table.decimal('pct_sem_meta', 5, 2).defaultTo(0);
+                table.decimal('pct_com_meta', 5, 2).defaultTo(0);
+                table.decimal('valor_fixo_base', 10, 2).defaultTo(0);
+                table.decimal('meta_mensal', 10, 2).nullable();
+                table.string('tipo_contrato', 30).defaultTo('prestador');
+                table.boolean('ativo').defaultTo(true);
+                table.timestamps(true, true);
+            });
+            console.log('✅ Tabela comissoes_tabela criada');
+        } else {
+            console.log('✓ Tabela comissoes_tabela existe');
+            const colsComissoes = {
+                pct_sem_meta: 'decimal', pct_com_meta: 'decimal',
+                valor_fixo_base: 'decimal', meta_mensal: 'decimal',
+                tipo_contrato: 'string', ativo: 'boolean',
+            };
+            for (const [col, tipo] of Object.entries(colsComissoes)) {
+                const has = await db.schema.hasColumn('comissoes_tabela', col);
+                if (!has) {
+                    await db.schema.table('comissoes_tabela', (table) => {
+                        if (tipo === 'decimal') table.decimal(col, 10, 2).defaultTo(0).nullable();
+                        else if (tipo === 'boolean') table.boolean(col).defaultTo(true);
+                        else table.string(col);
+                    });
+                    console.log(`  ✅ Coluna ${col} adicionada em comissoes_tabela`);
+                }
+            }
+        }
+
+        // ========================================
+        // TABELA: especialidades_clt (CLT)
+        // Armazena a % pré-cadastrada usada em: valor_bruto = valor_clinica_total × pct_com_meta
+        // ========================================
+        const hasEspecialidadesClt = await db.schema.hasTable('especialidades_clt');
+        if (!hasEspecialidadesClt) {
+            await db.schema.createTable('especialidades_clt', (table) => {
+                table.increments('id').primary();
+                table.string('especialidade', 100).notNullable().unique();
+                table.string('label', 100);
+                table.decimal('meta_mensal', 10, 2).nullable();
+                table.decimal('salario_base', 10, 2).defaultTo(0);
+                table.decimal('pct_com_meta', 5, 2).defaultTo(0);       // % sobre fat. total quando meta batida
+                table.decimal('pct_meta_extra', 5, 2).defaultTo(0);     // % extra abaixo do limiar
+                table.decimal('limiar_meta_extra', 10, 2).defaultTo(0); // limiar para acionar % extra
+                table.decimal('desconto_por_falta', 10, 2).defaultTo(0);
+                table.boolean('tem_calculo_automatico').defaultTo(true);
+                table.text('observacoes').nullable();
+                table.boolean('ativo').defaultTo(true);
+                table.timestamps(true, true);
+            });
+            console.log('✅ Tabela especialidades_clt criada');
+        } else {
+            console.log('✓ Tabela especialidades_clt existe');
+            const colsClt = {
+                label: 'string', meta_mensal: 'decimal', salario_base: 'decimal',
+                pct_com_meta: 'decimal', pct_meta_extra: 'decimal',
+                limiar_meta_extra: 'decimal', desconto_por_falta: 'decimal',
+                tem_calculo_automatico: 'boolean', observacoes: 'text', ativo: 'boolean',
+            };
+            for (const [col, tipo] of Object.entries(colsClt)) {
+                const has = await db.schema.hasColumn('especialidades_clt', col);
+                if (!has) {
+                    await db.schema.table('especialidades_clt', (table) => {
+                        if (tipo === 'decimal') table.decimal(col, 10, 2).defaultTo(0).nullable();
+                        else if (tipo === 'boolean') table.boolean(col).defaultTo(true);
+                        else if (tipo === 'text') table.text(col).nullable();
+                        else table.string(col).nullable();
+                    });
+                    console.log(`  ✅ Coluna ${col} adicionada em especialidades_clt`);
+                }
+            }
+        }
+
+        // ========================================
+        // COLUNAS ADICIONAIS: dados_mensais
+        // ========================================
+        const colsDadosExtra = {
+            valor_clinica_total: 'decimal',  // faturamento bruto total (CLT usa para meta)
+            observacoes_edicao: 'text',
+            editado_por: 'integer',
+            valor_bruto_original: 'decimal',
+        };
+        for (const [col, tipo] of Object.entries(colsDadosExtra)) {
+            const has = await db.schema.hasColumn('dados_mensais', col);
+            if (!has) {
+                await db.schema.table('dados_mensais', (table) => {
+                    if (tipo === 'decimal') table.decimal(col, 10, 2).nullable();
+                    else if (tipo === 'integer') table.integer(col).nullable();
+                    else table.text(col).nullable();
+                });
+                console.log(`  ✅ Coluna ${col} adicionada em dados_mensais`);
+            }
+        }
+
+        // ========================================
+        // COLUNA valor_fixo_base em prestador_vinculos
+        // ========================================
+        const hasVfb = await db.schema.hasColumn('prestador_vinculos', 'valor_fixo_base');
+        if (!hasVfb) {
+            await db.schema.table('prestador_vinculos', (table) => {
+                table.decimal('valor_fixo_base', 10, 2).defaultTo(0);
+            });
+            console.log('  ✅ Coluna valor_fixo_base adicionada em prestador_vinculos');
+        }
+
         console.log('\n✅ Esquema do banco validado e atualizado!\n');
 
     } catch (error) {

@@ -19,25 +19,30 @@ const ehPJComFixo = (reg) => reg.tipo_colaborador !== 'clt' && ESPECIALIDADES_CO
 const r2 = (v) => Math.round((parseFloat(v) || 0) * 100) / 100;
 
 const ModalEdicaoRegistro = ({ registro, onClose, onSalvo }) => {
+  const isClt   = registro.tipo_colaborador === 'clt';
   const temFixo = ehPJComFixo(registro);
-  const metaBatida = !!registro.meta_batida;
   const fixoBase = r2(registro.valor_fixo ?? (temFixo ? 600 : 0));
 
-  // comissao_base = porção do valor_bruto que vem da % (sem fixo, sem extras)
-  // Tanto com meta batida quanto sem meta, o fixo está embutido no valor_bruto → subtrai sempre
+  // Para CLT: valor_clinica_total é o faturamento bruto completo (meta e cálculo)
+  // Para PJ:  valor_clinica é a base (sem Part/OAB)
   const comissaoBase = r2((registro.valor_bruto || 0) - fixoBase - (registro.extras || 0));
 
   const [faltas, setFaltas] = useState(registro.faltas ?? 0);
   const [fixo, setFixo] = useState(fixoBase);
   const [extras, setExtras] = useState(r2(registro.extras || 0));
-  const [valorClinica, setValorClinica] = useState(r2(registro.valor_clinica ?? 0));
+  // CLT: field representa o faturamento total; PJ: faturamento sem Part/OAB
+  const [valorClinica, setValorClinica] = useState(
+    isClt
+      ? r2(registro.valor_clinica_total ?? registro.valor_clinica ?? 0)
+      : r2(registro.valor_clinica ?? 0)
+  );
   const [valorBruto, setValorBruto] = useState(r2(registro.valor_bruto ?? 0));
   const [obs, setObs] = useState(registro.observacoes_edicao ?? '');
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [brutoManual, setBrutoManual] = useState(false);
 
-  const DESCONTO_POR_FALTA = 20; // R$ 20 por falta (600/30)
+  const DESCONTO_POR_FALTA = 20;
 
   // Recalcula valor_bruto automaticamente quando faltas/fixo/extras mudam (PJ com fixo)
   useEffect(() => {
@@ -61,14 +66,22 @@ const ModalEdicaoRegistro = ({ registro, onClose, onSalvo }) => {
     const desconto = faltasN * DESCONTO_POR_FALTA;
     const fixoAjustado = Math.max(0, fixoN - desconto);
     try {
-      await api.put(`/dados-mensais/${registro.id}`, {
-        valor_clinica: r2(valorClinica),
+      // CLT envia valor_clinica_total (faturamento bruto completo para meta)
+      // PJ  envia valor_clinica (sem Part/OAB)
+      const payload = {
         faltas: faltasN,
         valor_fixo: temFixo ? fixoAjustado : undefined,
         extras: extrasN || undefined,
         valor_bruto: r2(valorBruto),
         observacoes_edicao: obs || null,
-      });
+      };
+      if (isClt) {
+        payload.valor_clinica_total = r2(valorClinica);
+        payload.valor_clinica       = r2(valorClinica); // mantido para exibição
+      } else {
+        payload.valor_clinica = r2(valorClinica);
+      }
+      await api.put(`/dados-mensais/${registro.id}`, payload);
       onSalvo();
       onClose();
     } catch (err) {
@@ -120,12 +133,17 @@ const ModalEdicaoRegistro = ({ registro, onClose, onSalvo }) => {
           {/* Linha 1: Faturado + Faltas */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <label style={lbl}>
-              Faturado Clínica (R$)
-              <input type="text" inputMode="decimal" value={valorClinica}
-                onChange={e => setValorClinica(e.target.value)}
-                onBlur={e => setValorClinica(r2(e.target.value))}
-                style={inp} />
-            </label>
+            {isClt ? 'Faturamento Total Clínica (R$)' : 'Faturado Clínica (R$)'}
+            {isClt && (
+              <span style={{ fontSize: '0.7rem', color: '#818cf8', fontWeight: 400 }}>
+                CLT — inclui Particular/OAB (base da meta)
+              </span>
+            )}
+            <input type="text" inputMode="decimal" value={valorClinica}
+              onChange={e => setValorClinica(e.target.value)}
+              onBlur={e => setValorClinica(r2(e.target.value))}
+              style={inp} />
+          </label>
             <label style={lbl}>
               Faltas
               <input type="number" value={faltas} min="0" max="31" step="1"

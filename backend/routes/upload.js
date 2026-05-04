@@ -879,7 +879,9 @@ router.post('/planilha', authenticateToken, requireAdmin, upload.single('planilh
 
           // Buscar meta do prestador (do contrato ou padrão)
           const metaMensal = user.meta_mensal || 5000;
-          const metaBatida = prestador.valor_liquido >= metaMensal ? 1 : 0;
+          // REGRA: meta_batida é calculada sobre valor_clinica (faturamento clínica),
+          // não sobre valor_liquido (que já é líquido após descontos)
+          const metaBatida = (parseFloat(prestador.valor_clinica) || 0) >= metaMensal ? 1 : 0;
 
           // Atualizar dados mensais
           await db('dados_mensais')
@@ -1003,7 +1005,8 @@ router.post('/planilha', authenticateToken, requireAdmin, upload.single('planilh
             valor_liquido: parseFloat(prestador.valor_liquido) || 0,
             valor_clinica: parseFloat(prestador.valor_clinica) || 0, // Adicionado valor_clinica
             faltas: parseInt(prestador.faltas) || 0,
-            meta_batida: prestador.valor_liquido >= metaMensal ? 1 : 0
+            // REGRA: meta_batida calculada sobre valor_clinica (faturamento clínica)
+            meta_batida: (parseFloat(prestador.valor_clinica) || 0) >= metaMensal ? 1 : 0
           });
 
           sucessos++;

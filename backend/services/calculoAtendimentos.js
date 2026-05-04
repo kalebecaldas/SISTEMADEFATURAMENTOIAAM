@@ -281,6 +281,14 @@ function normalizarEspParaComissao(espAtend, unidade) {
  *
  * Fórmula: FORA da meta: max(VP, fixo) + extras | COM meta: valor_clinica × pct + extras
  */
+/**
+ * REGRA DE NEGÓCIO:
+ * CLT  → meta e cálculo usam SEMPRE o faturamento total (valor_clinica_total),
+ *        incluindo Particular/OAB. Não há exclusão de convênios para CLT.
+ * PJ   → meta usa valor_clinica (excluindo Particular/OAB); valor_prof_part_oab
+ *        é somado separado como face-value.
+ */
+
 // Cache em memória do config CLT — recarregado a cada processamento
 let _cltConfigCache = null;
 
@@ -313,38 +321,58 @@ function encontrarConfigCLT(configs, especialidade_vinculo) {
   }) || null;
 }
 
+/**
+ * Calcula o valor bruto CLT para um grupo.
+ *
+ * REGRA: CLT usa valor_clinica_total (faturamento bruto completo, incluindo
+ * Particular/OAB) tanto para checagem quanto para cálculo da meta.
+ * Exclusão de Particular/OAB é exclusiva do fluxo PJ.
+ *
+ * @param {number} valor_clinica_total - Faturamento total da clínica (incluindo Part/OAB)
+ * @param {number} valor_profissional_atend - Valor profissional da planilha
+ * @param {number} valor_fixo_base - Salário fixo base
+ * @param {number|null} meta_mensal - Meta mensal configurada no vínculo
+ * @param {number} extras - Adicionais (dias extras, etc)
+ * @param {object[]|null} configCLT - Configurações da tabela especialidades_clt
+ */
 function calcularValorCLT({
   especialidade_vinculo,
-  valor_clinica,
+  valor_clinica,        // mantido por compatibilidade (PJ); CLT usa valor_clinica_total
+  valor_clinica_total,  // faturamento bruto completo (CLT usa este)
   valor_profissional_atend,
   valor_fixo_base,
   meta_mensal,
   faltas,
   extras,
-  configCLT, // array de especialidades_clt do banco
+  configCLT,
 }) {
   const extrasNum = parseFloat(extras) || 0;
   const fixo      = parseFloat(valor_fixo_base) || 0;
   const vp        = parseFloat(valor_profissional_atend) || 0;
   const baseForaMeta = Math.max(vp, fixo);
 
+  // CLT: usa SEMPRE o faturamento total (sem exclusão de Part/OAB)
+  const fatCLT = parseFloat(valor_clinica_total ?? valor_clinica) || 0;
+
   const esp = String(especialidade_vinculo || '').toLowerCase().trim();
 
   // Buscar config do banco (se disponível)
   const config = configCLT ? encontrarConfigCLT(configCLT, especialidade_vinculo) : null;
 
-  // Se há config no banco e cálculo automático está habilitado, usar dados do banco
+  // Config do banco com cálculo automático
   if (config && config.tem_calculo_automatico) {
     const meta = parseFloat(meta_mensal) || parseFloat(config.meta_mensal) || 0;
     const pctComMeta = parseFloat(config.pct_com_meta) || 0;
-    const pctExtra = parseFloat(config.pct_meta_extra) || 0;
+    const pctExtra   = parseFloat(config.pct_meta_extra) || 0;
     const limiarExtra = parseFloat(config.limiar_meta_extra) || 0;
 
-    if (meta > 0 && valor_clinica >= meta) {
-      // Se há limiar extra e faturamento está abaixo do limiar → usa % extra
-      const pctAplicado = (pctExtra > 0 && limiarExtra > 0 && valor_clinica < limiarExtra) ? pctExtra : pctComMeta;
+    if (meta > 0 && fatCLT >= meta) {
+      // Limiar extra: se existe e o faturamento está abaixo → usa % extra
+      const pctAplicado = (pctExtra > 0 && limiarExtra > 0 && fatCLT < limiarExtra)
+        ? pctExtra
+        : pctComMeta;
       return {
-        total: Math.max(0, valor_clinica * (pctAplicado / 100) + extrasNum),
+        total: Math.max(0, fatCLT * (pctAplicado / 100) + extrasNum),
         meta_batida: true,
         tipo_calculo: `clt_${config.especialidade.toLowerCase()}`,
         pct_aplicado: pctAplicado,
@@ -358,12 +386,13 @@ function calcularValorCLT({
     };
   }
 
-  // Fallback hardcoded (compatibilidade retroativa caso tabela não tenha a especialidade)
+  // Fallback hardcoded (retrocompatibilidade quando especialidade não está na tabela)
+
   // Fisio CLT
   if (esp.includes('fisio') && !esp.includes('pelv') && !esp.includes('pélv')) {
     const meta = parseFloat(meta_mensal) || 25000;
-    if (valor_clinica >= meta) {
-      return { total: Math.max(0, valor_clinica * 0.20 + extrasNum), meta_batida: true, tipo_calculo: 'clt_fisio', pct_aplicado: 20 };
+    if (fatCLT >= meta) {
+      return { total: Math.max(0, fatCLT * 0.20 + extrasNum), meta_batida: true, tipo_calculo: 'clt_fisio', pct_aplicado: 20 };
     }
     return { total: Math.max(0, baseForaMeta + extrasNum), meta_batida: false, tipo_calculo: 'clt_fisio', pct_aplicado: null };
   }
@@ -371,8 +400,8 @@ function calcularValorCLT({
   // Neuro CLT
   if (esp.includes('neuro')) {
     const meta = parseFloat(meta_mensal) || 16000;
-    if (valor_clinica >= meta) {
-      return { total: Math.max(0, valor_clinica * 0.30 + extrasNum), meta_batida: true, tipo_calculo: 'clt_neuro', pct_aplicado: 30 };
+    if (fatCLT >= meta) {
+      return { total: Math.max(0, fatCLT * 0.30 + extrasNum), meta_batida: true, tipo_calculo: 'clt_neuro', pct_aplicado: 30 };
     }
     return { total: Math.max(0, baseForaMeta + extrasNum), meta_batida: false, tipo_calculo: 'clt_neuro', pct_aplicado: null };
   }
@@ -380,9 +409,9 @@ function calcularValorCLT({
   // Acup CLT
   if (esp.includes('acup')) {
     const meta = parseFloat(meta_mensal) || 30000;
-    if (valor_clinica >= meta) {
-      const pct = valor_clinica >= 30000 ? 20 : 17;
-      return { total: Math.max(0, valor_clinica * (pct / 100) + extrasNum), meta_batida: true, tipo_calculo: 'clt_acup', pct_aplicado: pct };
+    if (fatCLT >= meta) {
+      const pct = fatCLT >= 30000 ? 20 : 17;
+      return { total: Math.max(0, fatCLT * (pct / 100) + extrasNum), meta_batida: true, tipo_calculo: 'clt_acup', pct_aplicado: pct };
     }
     return { total: Math.max(0, baseForaMeta + extrasNum), meta_batida: false, tipo_calculo: 'clt_acup', pct_aplicado: null };
   }
@@ -594,10 +623,11 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
 
     let resultado;
     if (tipoIndividual === 'clt') {
-      // CLT: sem fixo por turno, sem multiplicador — regido por holerite
+      // CLT: usa valor_clinica_total (faturamento completo, sem exclusão Part/OAB)
       resultado = calcularValorCLT({
         especialidade_vinculo: espVinculo,
         valor_clinica: item.valor_clinica,
+        valor_clinica_total: item.valor_clinica_total, // ← faturamento bruto completo
         valor_profissional_atend: item.valor_profissional_atend,
         valor_fixo_base: item.valor_fixo_base,
         meta_mensal: item.meta_mensal,
@@ -679,6 +709,7 @@ async function recalcularItem(item) {
     resultado = calcularValorCLT({
       especialidade_vinculo: item.especialidade,
       valor_clinica: item.valor_clinica,
+      valor_clinica_total: item.valor_clinica_total, // ← faturamento bruto completo para CLT
       valor_profissional_atend: item.valor_profissional_atend,
       valor_fixo_base: item.valor_fixo_base,
       meta_mensal: item.meta_mensal,
@@ -742,6 +773,7 @@ async function calcularFinanceiroUploadLinha(input) {
     return calcularValorCLT({
       especialidade_vinculo: especialidade,
       valor_clinica: valorClinica,
+      valor_clinica_total: valorClinicaTotal, // ← faturamento bruto para CLT
       valor_profissional_atend: valorProfissional,
       valor_fixo_base: valorFixoSheet,
       meta_mensal: metaMensal,
