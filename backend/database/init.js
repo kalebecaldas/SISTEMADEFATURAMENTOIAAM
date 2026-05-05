@@ -70,6 +70,11 @@ const initDatabase = async () => {
     await limparVinculosIndefinidosRedundantes();
     await criarVinculosCLTIniciais();
 
+    // Especialidades CLT: tabela de configuração % e metas por especialidade CLT
+    // REGRA: valor_bruto CLT = valor_clinica_total × pct_com_meta (quando meta batida)
+    const { criarEspecialidadesClt } = require('./migrations/especialidades_clt');
+    await criarEspecialidadesClt();
+
     // Garantir que admin existe (executado sempre)
     const bcrypt = require('bcryptjs');
     const adminEmail = 'kalebe.caldas@hotmail.com';
