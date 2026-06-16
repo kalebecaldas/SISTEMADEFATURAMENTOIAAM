@@ -11,6 +11,7 @@ const {
   recalcularItem,
   detectarTipoContrato,
   detectarMesAno,
+  sincronizarStatusAtivos,
 } = require('../services/calculoAtendimentos');
 const { cadastrarPrestadorRapido } = require('../services/prestadorCadastroRapido');
 
@@ -141,6 +142,23 @@ router.post('/analisar', authenticateToken, requireAdmin, upload.single('planilh
       }
     }
 
+    // ── Detectar turnos divergentes (vínculo de turno fixo recebeu atendimento do turno
+    // oposto) — admin precisa decidir se é "extra" ocasional ou se falta criar um vínculo
+    // novo pra esse turno. Casos reais que motivaram isso: Silvino (faltava vínculo de
+    // TARDE) e Bruna Loretta (cobriu turno de outra pessoa).
+    const turnos_divergentes = resultado.calculados
+      .filter(c => c.turno_divergente)
+      .map(c => ({
+        prestador_id: c.prestador_id,
+        vinculo_id: c.vinculo_id,
+        nome: c.nome,
+        especialidade: c.especialidade,
+        unidade: c.unidade,
+        turno_vinculo: c.turno,
+        turnos_detectados: c.turnos_detectados,
+        valor_clinica: c.valor_clinica,
+      }));
+
     return res.json({
       sucesso: true,
       tipo_contrato: resultado.tipo_contrato,
@@ -150,6 +168,7 @@ router.post('/analisar', authenticateToken, requireAdmin, upload.single('planilh
       calculados: resultado.calculados,
       nao_reconhecidos: resultado.nao_reconhecidos,
       conflitos_clt,
+      turnos_divergentes,
       resumo: {
         reconhecidos: resultado.calculados.length,
         nao_reconhecidos: resultado.nao_reconhecidos.length,
@@ -342,6 +361,9 @@ router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
       }
       console.log(`✅ ${mapeamentos_novos.length} mapeamentos de nomes persistidos`);
     }
+
+    // Sincroniza quem fica ativo/inativo com base no período mais recente já cadastrado
+    await sincronizarStatusAtivos(tipo_contrato === 'clt' ? 'clt' : 'prestador');
 
     return res.json({
       sucesso: true,
@@ -635,6 +657,72 @@ router.post('/prestadores/:id/tornar-clt', authenticateToken, requireAdmin, asyn
   } catch (error) {
     console.error('❌ Erro ao tornar CLT:', error);
     return res.status(500).json({ error: 'Erro ao converter para CLT: ' + error.message });
+  }
+});
+
+/**
+ * POST /api/atendimentos/prestadores/:id/criar-vinculo-turno
+ * Cria um vínculo PJ novo para um turno específico — usado quando o admin resolve um
+ * "turno divergente" (atendimento detectado num turno sem vínculo fixo correspondente)
+ * decidindo que é um turno novo de fato, não uma cobertura ocasional.
+ * Idempotente: se já existe vínculo ativo para essa combinação, retorna sem duplicar.
+ *
+ * Body: { especialidade, unidade, turno, meta_mensal, valor_fixo_base }
+ */
+router.post('/prestadores/:id/criar-vinculo-turno', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const prestadorId = parseInt(req.params.id);
+    const { especialidade, unidade, turno, meta_mensal = null, valor_fixo_base = null } = req.body;
+
+    if (!prestadorId || isNaN(prestadorId)) {
+      return res.status(400).json({ error: 'ID de prestador inválido' });
+    }
+    if (!especialidade || !unidade || !turno) {
+      return res.status(400).json({ error: 'especialidade, unidade e turno são obrigatórios' });
+    }
+
+    const usuario = await db('usuarios').where('id', prestadorId).first();
+    if (!usuario) {
+      return res.status(404).json({ error: 'Prestador não encontrado' });
+    }
+
+    const vinculoExistente = await db('prestador_vinculos')
+      .where({ prestador_id: prestadorId, tipo_contrato: 'prestador', especialidade, unidade, turno })
+      .where('ativo', true)
+      .first();
+
+    if (vinculoExistente) {
+      return res.json({
+        sucesso: true,
+        mensagem: `${usuario.nome} já possui vínculo PJ para ${especialidade} ${turno} em ${unidade}`,
+        vinculo_id: vinculoExistente.id,
+        ja_existia: true,
+      });
+    }
+
+    const [vinculoId] = await db('prestador_vinculos').insert({
+      prestador_id: prestadorId,
+      tipo_contrato: 'prestador',
+      especialidade,
+      unidade,
+      turno,
+      valor_fixo_base: valor_fixo_base != null ? parseFloat(valor_fixo_base) : null,
+      desconto_por_falta: 20,
+      meta_mensal: meta_mensal != null ? parseFloat(meta_mensal) : null,
+      ativo: 1,
+    });
+
+    console.log(`✅ Novo vínculo PJ criado para ${usuario.nome}: ${especialidade} ${turno} ${unidade}`);
+
+    return res.json({
+      sucesso: true,
+      mensagem: `Vínculo ${turno} criado para ${usuario.nome}. Reanalise a planilha pra esse turno entrar separado.`,
+      vinculo_id: vinculoId,
+      ja_existia: false,
+    });
+  } catch (error) {
+    console.error('❌ Erro ao criar vínculo de turno:', error);
+    return res.status(500).json({ error: 'Erro ao criar vínculo: ' + error.message });
   }
 });
 

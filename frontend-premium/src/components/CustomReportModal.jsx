@@ -42,8 +42,8 @@ function CustomReportModal({ isOpen, onClose }) {
             });
             setData(response.data);
             // Selecionar todos por padrão
-            const allIds = new Set(response.data.prestadores.map(p => p.id));
-            setSelectedProviders(allIds);
+            const allKeys = new Set(response.data.prestadores.map(getProviderKey));
+            setSelectedProviders(allKeys);
             setSelectAll(true);
         } catch (error) {
             console.error('Erro ao gerar relatório:', error);
@@ -128,12 +128,16 @@ function CustomReportModal({ isOpen, onClose }) {
 
         return result;
     };
-    const toggleProvider = (id) => {
+    // Profissionais com múltiplos turnos compartilham o mesmo prestador_id (campo `id`) —
+    // usar email+turno como chave evita que marcar o turno MANHÃ também marque TARDE.
+    const getProviderKey = (p) => `${p.email || p.nome}_${p.turno || 'INTEGRAL'}`;
+
+    const toggleProvider = (key) => {
         const newSelected = new Set(selectedProviders);
-        if (newSelected.has(id)) {
-            newSelected.delete(id);
+        if (newSelected.has(key)) {
+            newSelected.delete(key);
         } else {
-            newSelected.add(id);
+            newSelected.add(key);
         }
         setSelectedProviders(newSelected);
         setSelectAll(newSelected.size === data.prestadores.length);
@@ -143,8 +147,8 @@ function CustomReportModal({ isOpen, onClose }) {
         if (selectAll) {
             setSelectedProviders(new Set());
         } else {
-            const allIds = new Set(data.prestadores.map(p => p.id));
-            setSelectedProviders(allIds);
+            const allKeys = new Set(data.prestadores.map(getProviderKey));
+            setSelectedProviders(allKeys);
         }
         setSelectAll(!selectAll);
     };
@@ -153,7 +157,7 @@ function CustomReportModal({ isOpen, onClose }) {
         if (!data) return [];
 
         // Primeiro filtrar por seleção
-        let filtered = data.prestadores.filter(p => selectedProviders.has(p.id));
+        let filtered = data.prestadores.filter(p => selectedProviders.has(getProviderKey(p)));
 
         // Depois agrupar se necessário
         return groupProvidersByEmail(filtered);
@@ -161,33 +165,6 @@ function CustomReportModal({ isOpen, onClose }) {
 
     const getFilteredTotals = () => {
         const filtered = getFilteredProviders();
-
-        // #region agent log
-        try {
-            fetch('http://127.0.0.1:7245/ingest/c587a5fd-0753-44cb-be2b-c15533efa8d7', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'debug-session',
-                    runId: 'initial',
-                    hypothesisId: 'H1',
-                    location: 'frontend-premium/src/components/CustomReportModal.jsx:152',
-                    message: 'Calculating filtered totals',
-                    data: {
-                        filteredCount: filtered.length,
-                        firstProvider: filtered[0] ? {
-                            nome: filtered[0].nome,
-                            total_meses: filtered[0].total_meses,
-                            total_recebido: filtered[0].total_recebido,
-                            total_faturado: filtered[0].total_faturado,
-                            meses_trabalhados_count: filtered[0].meses_trabalhados?.length
-                        } : null
-                    },
-                    timestamp: Date.now()
-                })
-            }).catch(() => { });
-        } catch (_) { }
-        // #endregion
 
         // Calcular totais
         const total_pago = filtered.reduce((sum, p) => sum + (p.total_recebido || 0), 0);
@@ -211,34 +188,6 @@ function CustomReportModal({ isOpen, onClose }) {
         const media_faturamento_geral = total_meses_trabalhados > 0 ? total_faturado / total_meses_trabalhados : 0;
         const media_valor_profissional_geral = total_meses_trabalhados > 0 ? total_valor_profissional / total_meses_trabalhados : 0;
         const media_valor_fixo_geral = total_meses_trabalhados > 0 ? total_valor_fixo / total_meses_trabalhados : 0;
-
-        // #region agent log
-        try {
-            fetch('http://127.0.0.1:7245/ingest/c587a5fd-0753-44cb-be2b-c15533efa8d7', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'debug-session',
-                    runId: 'initial',
-                    hypothesisId: 'H1',
-                    location: 'frontend-premium/src/components/CustomReportModal.jsx:185',
-                    message: 'Calculated totals',
-                    data: {
-                        total_pago,
-                        total_faturado,
-                        total_valor_fixo,
-                        total_valor_profissional,
-                        total_meses_trabalhados,
-                        media_salarial_geral,
-                        media_faturamento_geral,
-                        media_valor_profissional_geral,
-                        media_valor_fixo_geral
-                    },
-                    timestamp: Date.now()
-                })
-            }).catch(() => { });
-        } catch (_) { }
-        // #endregion
 
         return {
             prestadores: filtered.length,
@@ -279,27 +228,6 @@ function CustomReportModal({ isOpen, onClose }) {
         const filteredProviders = getFilteredProviders();
         const totals = getFilteredTotals();
 
-        // #region agent log
-        try {
-            fetch('http://127.0.0.1:7245/ingest/c587a5fd-0753-44cb-be2b-c15533efa8d7', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'debug-session',
-                    runId: 'initial',
-                    hypothesisId: 'H1',
-                    location: 'frontend-premium/src/components/CustomReportModal.jsx:155',
-                    message: 'Starting CSV export',
-                    data: {
-                        totalProviders: filteredProviders.length,
-                        totalsKeys: Object.keys(totals)
-                    },
-                    timestamp: Date.now()
-                })
-            }).catch(() => { });
-        } catch (_) { }
-        // #endregion
-
         const headers = ['Nome', 'Especialidade', 'Turnos', 'Meses Trabalhados', 'Média Salarial', 'Média Faturamento', 'Total Recebido', 'Total Faturado'];
         const rows = filteredProviders.map((p, idx) => {
             // Extrair turnos únicos
@@ -337,28 +265,6 @@ function CustomReportModal({ isOpen, onClose }) {
 
         // Gerar CSV com escape adequado
         const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-
-        // #region agent log
-        try {
-            fetch('http://127.0.0.1:7245/ingest/c587a5fd-0753-44cb-be2b-c15533efa8d7', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'debug-session',
-                    runId: 'initial',
-                    hypothesisId: 'H1',
-                    location: 'frontend-premium/src/components/CustomReportModal.jsx:220',
-                    message: 'CSV generated',
-                    data: {
-                        csvLength: csv.length,
-                        firstRow: csv.split('\n')[0],
-                        secondRow: csv.split('\n')[1]?.substring(0, 100)
-                    },
-                    timestamp: Date.now()
-                })
-            }).catch(() => { });
-        } catch (_) { }
-        // #endregion
 
         // Adicionar BOM para Excel reconhecer UTF-8 corretamente
         const BOM = '\uFEFF';
@@ -699,11 +605,11 @@ function CustomReportModal({ isOpen, onClose }) {
                                 </div>
                                 <div className="providers-grid">
                                     {data.prestadores.map((prestador, idx) => (
-                                        <label key={`provider-${prestador.id}-${prestador.email || prestador.nome}-${idx}`} className="provider-checkbox">
+                                        <label key={`provider-${getProviderKey(prestador)}-${idx}`} className="provider-checkbox">
                                             <input
                                                 type="checkbox"
-                                                checked={selectedProviders.has(prestador.id)}
-                                                onChange={() => toggleProvider(prestador.id)}
+                                                checked={selectedProviders.has(getProviderKey(prestador))}
+                                                onChange={() => toggleProvider(getProviderKey(prestador))}
                                             />
                                             <div className="provider-info">
                                                 <span className="provider-name">{prestador.nome}</span>

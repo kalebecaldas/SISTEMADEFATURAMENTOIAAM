@@ -42,7 +42,11 @@ const ProviderPaymentHistory = () => {
         9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
     };
 
-    const hasPrestador = dados?.prestador;
+    // Usar lista completa de vínculos PJ quando disponível (array retornado pelo backend)
+    const prestadoresList = dados?.prestadores?.length > 0
+        ? dados.prestadores
+        : (dados?.prestador ? [dados.prestador] : []);
+    const hasPrestador = prestadoresList.length > 0;
     const hasCLT = dados?.clt;
     const hasMultiple = hasPrestador && hasCLT;
 
@@ -82,15 +86,17 @@ const ProviderPaymentHistory = () => {
                 </div>
             ) : (
                 <>
-                    {/* Card Consolidado */}
-                    {hasMultiple && (
+                    {/* Card Consolidado — mostra quando há CLT + PJ ou múltiplos vínculos */}
+                    {(hasMultiple || prestadoresList.length > 1) && (
                         <div className="value-card glass-card consolidado-card">
                             <div className="value-header">
                                 <TrendingUp size={24} />
                                 <span>Total Consolidado - {mesesNomes[mes]} / {ano}</span>
                             </div>
                             <div className="value-main">
-                                <span className="value-label">Valor Total (Prestador + CLT)</span>
+                                <span className="value-label">
+                                    {hasMultiple ? 'Valor Total (Prestador + CLT)' : 'Valor Total (todos os vínculos)'}
+                                </span>
                                 <h1 className="value-amount">{formatCurrency(dados.consolidado.valor_total)}</h1>
                                 <span className="consolidado-detail">
                                     {dados.consolidado.registros} contrato(s)
@@ -99,23 +105,30 @@ const ProviderPaymentHistory = () => {
                         </div>
                     )}
 
-                    {/* Card Prestador de Serviço */}
-                    {hasPrestador && (
-                        <div className="payment-contract-section">
+                    {/* Cards Prestador de Serviço — um por vínculo PJ */}
+                    {hasPrestador && prestadoresList.map((pj, idx) => (
+                        <div key={pj.id || idx} className="payment-contract-section">
                             <div className="section-title prestador-title">
                                 <Users size={20} />
-                                <h3>Contrato de Prestador de Serviço</h3>
+                                <h3>
+                                    Contrato de Prestador de Serviço
+                                    {prestadoresList.length > 1 && (
+                                        <span style={{ marginLeft: 8, fontSize: '0.85rem', opacity: 0.7 }}>
+                                            ({idx + 1}/{prestadoresList.length})
+                                        </span>
+                                    )}
+                                </h3>
                             </div>
                             <div className="value-card glass-card prestador-card">
                                 <div className="value-header">
                                     <Calendar size={24} />
-                                    <span>Período: {dados.prestador.dia_inicio || 1} a {dados.prestador.dia_fim || 30} de {mesesNomes[mes]}</span>
+                                    <span>Período: {pj.dia_inicio || 1} a {pj.dia_fim || 30} de {mesesNomes[mes]}</span>
                                 </div>
                                 <div className="value-main">
                                     <span className="value-label">Valor Líquido</span>
-                                    <h1 className="value-amount">{formatCurrency(dados.prestador.valor_liquido)}</h1>
-                                    {dados.prestador.turno && (
-                                        <span className="detail-badge">{dados.prestador.turno} - {dados.prestador.especialidade}</span>
+                                    <h1 className="value-amount">{formatCurrency(pj.valor_liquido)}</h1>
+                                    {pj.turno && (
+                                        <span className="detail-badge">{pj.turno} - {pj.especialidade}</span>
                                     )}
                                 </div>
 
@@ -126,8 +139,8 @@ const ProviderPaymentHistory = () => {
                                         </div>
                                         <div className="stat-content">
                                             <span className="stat-label">Faltas</span>
-                                            <span className={`stat-value ${dados.prestador.faltas > 0 ? 'danger' : 'success'}`}>
-                                                {dados.prestador.faltas || 0}
+                                            <span className={`stat-value ${pj.faltas > 0 ? 'danger' : 'success'}`}>
+                                                {pj.faltas || 0}
                                             </span>
                                         </div>
                                     </div>
@@ -137,13 +150,13 @@ const ProviderPaymentHistory = () => {
                                         </div>
                                         <div className="stat-content">
                                             <span className="stat-label">Unidade</span>
-                                            <span className="stat-value-small">{dados.prestador.unidade || '-'}</span>
+                                            <span className="stat-value-small">{pj.unidade || '-'}</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    )}
+                    ))}
 
                     {/* Card CLT */}
                     {hasCLT && (

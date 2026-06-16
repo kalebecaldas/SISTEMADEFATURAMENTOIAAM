@@ -229,9 +229,14 @@ router.get('/dashboard', authenticateToken, requirePrestador, checkUserActive, a
       });
     }
 
-    // Calcular estatísticas
-    const meta = 5000; // Meta padrão
-    const percentualMeta = (dados.valor_liquido / meta) * 100;
+    // Buscar meta real do vínculo ativo mais recente
+    const vinculoPrimario = await db('prestador_vinculos')
+      .where({ prestador_id: req.user.id, ativo: true })
+      .orderBy('created_at', 'desc')
+      .first();
+
+    const meta = vinculoPrimario?.meta_mensal || null;
+    const percentualMeta = meta ? Math.round((dados.valor_liquido / meta) * 10000) / 100 : null;
 
     res.json({
       mes: targetMes,
@@ -239,7 +244,7 @@ router.get('/dashboard', authenticateToken, requirePrestador, checkUserActive, a
       dados: {
         ...dados,
         meta,
-        percentualMeta: Math.round(percentualMeta * 100) / 100,
+        percentualMeta,
         statusMeta: dados.meta_batida ? 'Bateu' : 'Não bateu'
       }
     });
@@ -284,6 +289,7 @@ router.get('/historico/:mes/:ano', authenticateToken, requirePrestador, checkUse
     const dadosMensais = await db('dados_mensais as dm')
       .leftJoin('prestador_vinculos as pv', 'dm.vinculo_id', 'pv.id')
       .select(
+        'dm.id',
         'dm.valor_liquido',
         'dm.faltas',
         'dm.meta_batida',
@@ -291,10 +297,10 @@ router.get('/historico/:mes/:ano', authenticateToken, requirePrestador, checkUse
         'dm.especialidade',
         'dm.unidade',
         'dm.tipo_colaborador',
+        'dm.turno',
         'dm.dia_inicio',
         'dm.dia_fim',
         'dm.created_at',
-        'pv.turno',
         'pv.tipo_contrato'
       )
       .where({
@@ -313,19 +319,34 @@ router.get('/historico/:mes/:ano', authenticateToken, requirePrestador, checkUse
       });
     }
 
-    // Separar por tipo
-    const dadosPrestador = dadosMensais.filter(d => d.tipo_colaborador === 'prestador' || d.tipo_contrato === 'prestador');
-    const dadosCLT = dadosMensais.filter(d => d.tipo_colaborador === 'clt' || d.tipo_contrato === 'clt');
+    // Separar por tipo usando dm.tipo_colaborador (sempre preenchido no upload)
+    const dadosPrestador = dadosMensais.filter(d => d.tipo_colaborador === 'prestador');
+    const dadosCLT = dadosMensais.filter(d => d.tipo_colaborador === 'clt');
 
     // Calcular consolidado
     const valorTotalConsolidado = dadosMensais.reduce((sum, d) => sum + (d.valor_liquido || 0), 0);
     const faltasTotais = dadosMensais.reduce((sum, d) => sum + (d.faltas || 0), 0);
 
+    // Consolidar todos os vínculos PJ em uma visão agregada (mantendo compatibilidade)
+    const prestadorAgregado = dadosPrestador.length > 0 ? {
+      valor_liquido: dadosPrestador.reduce((s, d) => s + (d.valor_liquido || 0), 0),
+      valor_bruto:   dadosPrestador.reduce((s, d) => s + (d.valor_bruto   || 0), 0),
+      faltas:        dadosPrestador.reduce((s, d) => s + (d.faltas        || 0), 0),
+      dia_inicio:    dadosPrestador[0].dia_inicio,
+      dia_fim:       dadosPrestador[0].dia_fim,
+      meta_batida:   dadosPrestador.some(d => d.meta_batida),
+      turno: [...new Set(dadosPrestador.map(d => d.turno).filter(Boolean))].join(' + '),
+      especialidade: [...new Set(dadosPrestador.map(d => d.especialidade).filter(Boolean))].join(' + '),
+      unidade:       [...new Set(dadosPrestador.map(d => d.unidade).filter(Boolean))].join(' + '),
+    } : null;
+
     res.json({
       mes: parseInt(mes),
       ano: parseInt(ano),
       dados: dadosMensais,
-      prestador: dadosPrestador.length > 0 ? dadosPrestador[0] : null,
+      prestadores: dadosPrestador,
+      prestador: prestadorAgregado,
+      clt_list: dadosCLT,
       clt: dadosCLT.length > 0 ? dadosCLT[0] : null,
       consolidado: {
         valor_total: valorTotalConsolidado,

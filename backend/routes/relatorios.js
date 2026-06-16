@@ -9,9 +9,9 @@ const router = express.Router();
  * Estatísticas gerais
  */
 router.get('/stats', authenticateToken, requireAdmin, asyncHandler(async (req, res) => {
-    // Total de prestadores
+    // Total de prestadores (todos, independente de status — é estatística histórica)
     const totalPrestadores = await db('usuarios')
-        .where({ tipo: 'prestador', status: 'ativo' })
+        .where({ tipo: 'prestador' })
         .count('* as count')
         .first();
 
@@ -123,22 +123,20 @@ router.get('/stats', authenticateToken, requireAdmin, asyncHandler(async (req, r
 router.get('/ranking/:mes/:ano', authenticateToken, requireAdmin, asyncHandler(async (req, res) => {
     const { mes, ano } = req.params;
 
+    // Agrupar por profissional — quem tem múltiplos vínculos (manhã+tarde) não deve
+    // ocupar 2 posições no ranking com valores parciais.
     const ranking = await db('dados_mensais as dm')
         .join('usuarios as u', 'dm.prestador_id', 'u.id')
-        .select(
-            'u.nome',
-            'u.email',
-            'u.especialidade',
-            'dm.valor_liquido',
-            'dm.meta_batida',
-            'dm.faltas'
-        )
+        .select('u.nome', 'u.email', 'u.especialidade')
+        .sum('dm.valor_liquido as valor_liquido')
+        .max('dm.meta_batida as meta_batida')
+        .sum('dm.faltas as faltas')
         .where({
             'dm.mes': parseInt(mes),
             'dm.ano': parseInt(ano),
-            'u.status': 'ativo'
         })
-        .orderBy('dm.valor_liquido', 'desc')
+        .groupBy('u.id', 'u.nome', 'u.email', 'u.especialidade')
+        .orderBy('valor_liquido', 'desc')
         .limit(10);
 
     res.json(ranking);
@@ -176,6 +174,16 @@ router.get('/customizado', authenticateToken, requireAdmin, asyncHandler(async (
     const inicio = { mes: parseInt(mesInicio), ano: parseInt(anoInicio) };
     const periodo = parseInt(mesesPeriodo);
 
+    if (Number.isNaN(inicio.mes) || inicio.mes < 1 || inicio.mes > 12) {
+        return res.status(400).json({ error: 'mesInicio inválido — deve ser entre 1 e 12' });
+    }
+    if (Number.isNaN(inicio.ano) || inicio.ano < 2000 || inicio.ano > 2100) {
+        return res.status(400).json({ error: 'anoInicio inválido' });
+    }
+    if (Number.isNaN(periodo) || periodo < 1 || periodo > 60) {
+        return res.status(400).json({ error: 'mesesPeriodo inválido — deve ser entre 1 e 60' });
+    }
+
     // Calcular mês/ano final
     let mesFim = inicio.mes + periodo - 1;
     let anoFim = inicio.ano;
@@ -198,10 +206,13 @@ router.get('/customizado', authenticateToken, requireAdmin, asyncHandler(async (
             'pv.turno',
             'pv.especialidade as vinculo_especialidade',
             'pv.unidade as vinculo_unidade',
+            'dm.especialidade as dado_especialidade',
             'dm.mes',
             'dm.ano',
+            'dm.tipo_colaborador',
             'dm.valor_liquido',
             'dm.valor_clinica',
+            'dm.valor_clinica_total',
             'dm.valor_profissional',
             'dm.valor_fixo',
             'dm.faltas',
@@ -245,36 +256,14 @@ router.get('/customizado', authenticateToken, requireAdmin, asyncHandler(async (
             }
             // Se turno for INDEFINIDO ou vazio, usar apenas o nome sem adicionar turno
 
-            // #region agent log
-            try {
-                fetch('http://127.0.0.1:7245/ingest/c587a5fd-0753-44cb-be2b-c15533efa8d7', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sessionId: 'debug-session',
-                        runId: 'initial',
-                        hypothesisId: 'H1',
-                        location: 'backend/routes/relatorios.js:195',
-                        message: 'Processing prestador name with turno',
-                        data: {
-                            nomeOriginal: dado.nome,
-                            turno: dado.turno,
-                            nomeCompleto,
-                            email: dado.email
-                        },
-                        timestamp: Date.now()
-                    })
-                }).catch(() => { });
-            } catch (_) { }
-            // #endregion
-
             prestadoresMap.set(key, {
                 id: dado.prestador_id,
                 nome: nomeCompleto,
                 nome_base: dado.nome,
                 email: dado.email,
                 turno: dado.turno || 'INTEGRAL',
-                especialidade: dado.vinculo_especialidade || dado.especialidade,
+                // Prioridade: especialidade do registro daquele mês > vínculo > cadastro do usuário
+                especialidade: dado.dado_especialidade || dado.vinculo_especialidade || dado.especialidade,
                 unidade: dado.vinculo_unidade,
                 meses_trabalhados: [],
                 total_recebido: 0,
@@ -284,13 +273,19 @@ router.get('/customizado', authenticateToken, requireAdmin, asyncHandler(async (
 
         const prestador = prestadoresMap.get(key);
 
+        // CLT usa faturamento total (inclui Part/OAB); PJ usa valor_clinica (exclui Part/OAB)
+        const faturadoDoMes = dado.tipo_colaborador === 'clt'
+            ? (parseFloat(dado.valor_clinica_total) || parseFloat(dado.valor_clinica) || 0)
+            : (parseFloat(dado.valor_clinica) || 0);
+
         // Adicionar mês trabalhado
         prestador.meses_trabalhados.push({
             mes: dado.mes,
             ano: dado.ano,
             turno: dado.turno,
+            tipo_colaborador: dado.tipo_colaborador,
             valor_liquido: parseFloat(dado.valor_liquido) || 0,
-            valor_clinica: parseFloat(dado.valor_clinica) || 0,
+            valor_clinica: faturadoDoMes,
             valor_profissional: parseFloat(dado.valor_profissional) || 0,
             valor_fixo: parseFloat(dado.valor_fixo) || 0,
             faltas: dado.faltas || 0,
@@ -298,7 +293,7 @@ router.get('/customizado', authenticateToken, requireAdmin, asyncHandler(async (
         });
 
         prestador.total_recebido += parseFloat(dado.valor_liquido) || 0;
-        prestador.total_faturado += parseFloat(dado.valor_clinica) || 0;
+        prestador.total_faturado += faturadoDoMes;
     }
 
     // Converter Map para array e calcular médias

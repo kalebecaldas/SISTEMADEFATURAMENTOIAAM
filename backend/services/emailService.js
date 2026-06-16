@@ -258,9 +258,10 @@ class EmailService {
     };
 
     const mesNome = mesesNomes[mes];
-    const metaFormatada = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(meta_mensal);
+    const temMeta = meta_mensal != null && meta_mensal > 0;
+    const metaFormatada = temMeta ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(meta_mensal) : null;
     const valorFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor_liquido);
-    const percentualMeta = ((valor_liquido / meta_mensal) * 100).toFixed(1);
+    const percentualMeta = temMeta ? ((valor_liquido / meta_mensal) * 100).toFixed(1) : null;
 
     // Verificar se o colaborador está ativo
     const isAtivo = status === 'ativo';
@@ -327,14 +328,17 @@ class EmailService {
                 <td style="padding: 12px 0; text-align: right; font-weight: bold;">${especialidade}</td>
               </tr>
               ` : ''}
+              ${temMeta ? `
               <tr style="border-bottom: 1px solid #f0f0f0;">
                 <td style="padding: 12px 0; color: #666;">🎯 Meta Mensal:</td>
                 <td style="padding: 12px 0; text-align: right; font-weight: bold;">${metaFormatada}</td>
               </tr>
+              ` : ''}
               <tr style="border-bottom: 1px solid #f0f0f0;">
                 <td style="padding: 12px 0; color: #666;">📉 Faltas:</td>
                 <td style="padding: 12px 0; text-align: right; font-weight: bold; color: ${faltas > 0 ? '#f44336' : '#4CAF50'};">${faltas || 0}</td>
               </tr>
+              ${temMeta ? `
               <tr>
                 <td style="padding: 12px 0; color: #666;">✅ Status da Meta:</td>
                 <td style="padding: 12px 0; text-align: right;">
@@ -349,6 +353,7 @@ class EmailService {
                   ">${meta_batida ? '✓ Meta Batida' : '○ Meta Não Batida'}</span>
                 </td>
               </tr>
+              ` : ''}
             </table>
           </div>
 

@@ -44,14 +44,16 @@ const ModalEdicaoRegistro = ({ registro, onClose, onSalvo }) => {
 
   const DESCONTO_POR_FALTA = 20;
 
-  // Recalcula valor_bruto automaticamente quando faltas/fixo/extras mudam (PJ com fixo)
+  // Recalcula valor_bruto automaticamente quando faltas/fixo/extras mudam.
+  // Extras vale pra todo mundo (CLT e PJ, com ou sem fixo); desconto por falta
+  // só existe onde há fixo pra descontar.
   useEffect(() => {
-    if (!temFixo || brutoManual) return;
+    if (brutoManual) return;
     const faltasN = parseInt(faltas) || 0;
     const fixoN = r2(fixo);
     const extrasN = r2(extras);
-    const desconto = faltasN * DESCONTO_POR_FALTA;
-    const fixoAjustado = Math.max(0, fixoN - desconto);
+    const desconto = temFixo ? faltasN * DESCONTO_POR_FALTA : 0;
+    const fixoAjustado = temFixo ? Math.max(0, fixoN - desconto) : 0;
     const novo = r2(Math.max(0, comissaoBase + fixoAjustado + extrasN));
     setValorBruto(novo);
   }, [faltas, fixo, extras, temFixo, brutoManual]);
@@ -63,15 +65,15 @@ const ModalEdicaoRegistro = ({ registro, onClose, onSalvo }) => {
     const faltasN = parseInt(faltas) || 0;
     const fixoN = r2(fixo);
     const extrasN = r2(extras);
-    const desconto = faltasN * DESCONTO_POR_FALTA;
-    const fixoAjustado = Math.max(0, fixoN - desconto);
+    const desconto = temFixo ? faltasN * DESCONTO_POR_FALTA : 0;
+    const fixoAjustado = temFixo ? Math.max(0, fixoN - desconto) : 0;
     try {
       // CLT envia valor_clinica_total (faturamento bruto completo para meta)
       // PJ  envia valor_clinica (sem Part/OAB)
       const payload = {
         faltas: faltasN,
         valor_fixo: temFixo ? fixoAjustado : undefined,
-        extras: extrasN || undefined,
+        extras: extrasN,
         valor_bruto: r2(valorBruto),
         observacoes_edicao: obs || null,
       };
@@ -152,9 +154,9 @@ const ModalEdicaoRegistro = ({ registro, onClose, onSalvo }) => {
             </label>
           </div>
 
-          {/* Fixo + Extras (só PJ com fixo) */}
-          {temFixo && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          {/* Fixo (só quem tem fixo) + Extras (todo mundo — CLT e PJ) */}
+          <div style={{ display: 'grid', gridTemplateColumns: temFixo ? '1fr 1fr' : '1fr', gap: '1rem' }}>
+            {temFixo && (
               <label style={lbl}>
                 Fixo base (R$)
                 <input type="text" inputMode="decimal" value={fixo}
@@ -167,18 +169,18 @@ const ModalEdicaoRegistro = ({ registro, onClose, onSalvo }) => {
                   </span>
                 )}
               </label>
-              <label style={lbl}>
-                Extras (R$)
-                <input type="text" inputMode="decimal" value={extras}
-                  onChange={e => setExtras(e.target.value)}
-                  onBlur={e => setExtras(r2(e.target.value))}
-                  style={inp} placeholder="0" />
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                  Dias extras em outro turno
-                </span>
-              </label>
-            </div>
-          )}
+            )}
+            <label style={lbl}>
+              Extras (R$)
+              <input type="text" inputMode="decimal" value={extras}
+                onChange={e => setExtras(e.target.value)}
+                onBlur={e => setExtras(r2(e.target.value))}
+                style={inp} placeholder="0" />
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                Diárias extras ou ajuste manual — soma (ou desconta, se negativo) direto no valor bruto
+              </span>
+            </label>
+          </div>
 
           {/* Valor Bruto — calculado automaticamente ou manual */}
           <label style={lbl}>
@@ -302,8 +304,8 @@ const TabelaResumo = ({ registros, tipo, onEditar }) => {
                 ) : <span style={{ color: 'var(--text-muted)' }}>0</span>}
               </td>
               <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>
-                {r.extras > 0 ? (
-                  <span style={{ color: '#34d399', fontWeight: 600 }}>{fmt(r.extras)}</span>
+                {r.extras ? (
+                  <span style={{ color: r.extras > 0 ? '#34d399' : '#f87171', fontWeight: 600 }}>{fmt(r.extras)}</span>
                 ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
               </td>
               <td style={{ padding: '0.6rem 0.75rem', fontWeight: 700, color: '#22c55e' }}>{fmt(r.valor_bruto)}</td>

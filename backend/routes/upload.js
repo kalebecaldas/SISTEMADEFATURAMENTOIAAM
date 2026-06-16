@@ -9,7 +9,7 @@ const { db } = require('../database/init');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { normalizarUnidade } = require('../utils/unidades');
 const { cadastrarPrestadorRapido } = require('../services/prestadorCadastroRapido');
-const { calcularFinanceiroUploadLinha } = require('../services/calculoAtendimentos');
+const { calcularFinanceiroUploadLinha, sincronizarStatusAtivos } = require('../services/calculoAtendimentos');
 
 const router = express.Router();
 
@@ -268,6 +268,7 @@ router.post('/processar', authenticateToken, requireAdmin, upload.single('planil
       const valorProfissional = parseFloat(row[4]) || 0; // Coluna E
       const valorFixo = parseFloat(row[5]) || 0; // Coluna F
       const metaMensal = row[6]; // Coluna G
+      const valorBrutoPlanilha = parseFloat(row[7]) || 0; // Coluna H - Valor Bruto
       const faltas = parseInt(row[10]) || 0; // Coluna K
       const valorLiquido = parseFloat(row[19]) || 0; // Coluna T
 
@@ -291,6 +292,7 @@ router.post('/processar', authenticateToken, requireAdmin, upload.single('planil
       if (metaMensal && metaMensal !== 'N/P' && metaMensal !== 'NP' && !isNaN(parseFloat(metaMensal))) {
         metaMensalValue = parseFloat(metaMensal);
       }
+      const metaBatidaPlanilha = metaMensalValue !== null && valorClinica > metaMensalValue;
 
       const { normalizarEspecialidade } = require('../utils/especialidades');
       const especialidadeNormalizada = normalizarEspecialidade(especialidadeAbrev);
@@ -310,7 +312,9 @@ router.post('/processar', authenticateToken, requireAdmin, upload.single('planil
         especialidade: especialidadeNormalizada,
         unidade,
         meta_mensal: metaMensalValue,
+        meta_batida: metaBatidaPlanilha,
         valor_liquido: valorLiquido,
+        valor_bruto: valorBrutoPlanilha,
         valor_clinica: valorClinica,
         valor_profissional: valorProfissional,
         valor_fixo: valorFixo,
@@ -558,7 +562,7 @@ router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
       let contouNovoUsuario = false;
 
       for (const vinculo of vinculos) {
-        const { turno, especialidade, unidade, meta_mensal, valor_liquido, valor_clinica, valor_profissional, valor_fixo, faltas } = vinculo;
+        const { turno, especialidade, unidade, meta_mensal, meta_batida: metaBatidaPlanilha, valor_liquido, valor_bruto: valorBrutoPlanilha, valor_clinica, valor_profissional, valor_fixo, faltas } = vinculo;
 
         let vinculoExistente = null;
         if (usuarioAtual) {
@@ -612,9 +616,24 @@ router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
         const totalBruto = resultadoFin.total;
         const fixoAjustado = resultadoFin.fixo_ajustado != null ? resultadoFin.fixo_ajustado : 0;
         const metaBatida = !!resultadoFin.meta_batida;
-        const valorLiquidoFinal = totalBruto != null && !Number.isNaN(totalBruto)
-          ? totalBruto
-          : (parseFloat(valor_liquido) || 0);
+
+        // PJ: só aplica o recálculo quando a tabela de comissões foi realmente usada (percentual
+        // encontrado). Quando não há comissão cadastrada, a coluna T da planilha (valor_liquido)
+        // já contém o valor final correto — recalcular com apenas prof+fixo produz valor menor.
+        // CLT: usa o recálculo quando disponível; fallback para planilha quando total = null.
+        const isCLT = (tipo_colaborador || 'prestador') === 'clt';
+        const planilhaLiquido = parseFloat(valor_liquido) || 0;
+        const valorLiquidoFinal = isCLT
+          ? ((totalBruto != null && !Number.isNaN(totalBruto)) ? totalBruto : planilhaLiquido)
+          : (resultadoFin.tipo_calculo === 'valor_pct_com_meta' ? totalBruto : planilhaLiquido);
+
+        // Usar valor_bruto direto da coluna H da planilha quando disponível
+        const valorBrutoFinal = (valorBrutoPlanilha && valorBrutoPlanilha > 0)
+          ? valorBrutoPlanilha
+          : valorLiquidoFinal;
+
+        // meta_batida: priorizar comparação D>G lida da planilha; fallback para cálculo interno
+        const metaBatidaFinal = metaBatidaPlanilha != null ? metaBatidaPlanilha : metaBatida;
 
         let metaMensalNum = null;
         if (meta_mensal != null && meta_mensal !== 'N/P' && meta_mensal !== 'NP' && !Number.isNaN(parseFloat(meta_mensal))) {
@@ -640,12 +659,12 @@ router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
           valor_clinica_meta: valor_clinica,
           valor_profissional,
           valor_prof_part_oab: 0,
-          valor_bruto: totalBruto,
-          valor_original: totalBruto,
+          valor_bruto: valorBrutoFinal,
+          valor_original: valorLiquidoFinal,
           valor_liquido: valorLiquidoFinal,
           valor_fixo: fixoAjustado,
           meta_mensal: metaMensalNum,
-          meta_batida: metaBatida ? 1 : 0,
+          meta_batida: metaBatidaFinal ? 1 : 0,
           faltas: faltas || 0,
           extras: 0,
           especialidade,
@@ -674,6 +693,9 @@ router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
 
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+
+    // Sincroniza quem fica ativo/inativo com base no período mais recente já cadastrado
+    await sincronizarStatusAtivos(tipo_colaborador || 'prestador');
 
     console.log(`✅ Upload concluído: ${novosUsuarios} usuários, ${novosVinculos} vínculos, ${dadosMensaisSalvos} dados`);
 
@@ -931,38 +953,6 @@ router.post('/planilha', authenticateToken, requireAdmin, upload.single('planilh
           const tokenConfirmacao = crypto.randomBytes(32).toString('hex');
           const senhaHash = bcrypt.hashSync('123456', 10); // Senha padrão
 
-          // #region agent log
-          try {
-            // Hypotheses H1/H2: usuarios schema vs insert columns (cadastro_confirmado)
-            const insertPayload = {
-              email: prestador.email,
-              nome: prestador.nome,
-              tipo: 'prestador',
-              status: 'pendente',
-              cadastro_confirmado: false,
-              especialidade: especialidadeNormalizada,
-              unidades: JSON.stringify(unidades),
-              valor_fixo: prestador.valor_fixo,
-              meta_mensal: metaMensal
-            };
-            fetch('http://127.0.0.1:7245/ingest/c587a5fd-0753-44cb-be2b-c15533efa8d7', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                sessionId: 'debug-session',
-                runId: 'initial',
-                hypothesisId: 'H2',
-                location: 'backend/routes/upload.js:310',
-                message: 'About to insert new prestador with usuarios columns',
-                data: { insertKeys: Object.keys(insertPayload) },
-                timestamp: Date.now()
-              })
-            }).catch(() => { });
-          } catch (_) {
-            // Ignore logging failures
-          }
-          // #endregion
-
           const [newUserId] = await db('usuarios').insert({
             email: prestador.email,
             senha: senhaHash,
@@ -1015,33 +1005,6 @@ router.post('/planilha', authenticateToken, requireAdmin, upload.single('planilh
         }
       } catch (error) {
         console.error(`❌ Erro ao salvar prestador ${prestador.nome}:`, error);
-
-        // #region agent log
-        try {
-          fetch('http://127.0.0.1:7245/ingest/c587a5fd-0753-44cb-be2b-c15533efa8d7', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId: 'debug-session',
-              runId: 'initial',
-              hypothesisId: 'H1',
-              location: 'backend/routes/upload.js:348',
-              message: 'Erro ao salvar prestador na tabela usuarios',
-              data: {
-                nome: prestador.nome,
-                email: prestador.email,
-                code: error.code || null,
-                errno: error.errno || null,
-                message: error.message || null
-              },
-              timestamp: Date.now()
-            })
-          }).catch(() => { });
-        } catch (_) {
-          // Ignore logging failures
-        }
-        // #endregion
-
         erros++;
       }
     }

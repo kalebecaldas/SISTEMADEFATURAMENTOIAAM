@@ -362,9 +362,10 @@ function calcularValorCLT({
   // Config do banco com cálculo automático
   if (config && config.tem_calculo_automatico) {
     const meta = parseFloat(meta_mensal) || parseFloat(config.meta_mensal) || 0;
-    const pctComMeta = parseFloat(config.pct_com_meta) || 0;
-    const pctExtra   = parseFloat(config.pct_meta_extra) || 0;
+    const pctComMeta  = parseFloat(config.pct_com_meta) || 0;
+    const pctExtra    = parseFloat(config.pct_meta_extra) || 0;
     const limiarExtra = parseFloat(config.limiar_meta_extra) || 0;
+    const salarioBase = parseFloat(config.salario_base) || 0;
 
     if (meta > 0 && fatCLT >= meta) {
       // Limiar extra: se existe e o faturamento está abaixo → usa % extra
@@ -378,8 +379,9 @@ function calcularValorCLT({
         pct_aplicado: pctAplicado,
       };
     }
+    // Fora da meta: salário fixo da tabela especialidades_clt (não usa vp da planilha)
     return {
-      total: Math.max(0, baseForaMeta + extrasNum),
+      total: Math.max(0, salarioBase + extrasNum),
       meta_batida: false,
       tipo_calculo: `clt_${config.especialidade.toLowerCase()}`,
       pct_aplicado: null,
@@ -455,27 +457,47 @@ async function cruzarComPrestadores(grupos, tipoContrato) {
    * Tenta encontrar o melhor vínculo em uma lista de candidatos.
    * strictTurno=true  → só turno exato ou INDEFINIDO (usado para CLT — evita duplicar turnos)
    * strictTurno=false → também aceita fallback relaxado por nome (usado para PJ)
+   *
+   * Retorna { vinculo, turnoDivergente }. turnoDivergente=true quando o atendimento só
+   * casou via fallback (nome ± unidade, ignorando turno) com um vínculo PJ de turno FIXO
+   * (MANHÃ ou TARDE) diferente do turno detectado — ex: vínculo é só MANHÃ mas apareceu
+   * atendimento de TARDE. Isso some no PJ sob risco de faltar um fixo/turno separado
+   * (caso real: Silvino, Bruna Loretta). Para CLT não se aplica — salário fixo já cobre
+   * qualquer turno, então nunca diverge.
    */
   function encontrarVinculo(candidates, grupo, strictTurno = false) {
-    // 1. Turno exato
+    // 1. Turno exato — nunca diverge
     let match = candidates.find(p => {
       const nomeMatch = similaridade(p.nome, grupo.nome_normalizado) >= 0.7;
       const unidadeMatch = !p.unidade || !grupo.unidade || p.unidade === grupo.unidade;
       return nomeMatch && unidadeMatch && p.turno === grupo.turno;
     });
-    if (match) return match;
+    if (match) return { vinculo: match, turnoDivergente: false };
 
-    // 2. Fallback: vínculo INDEFINIDO ou AMBOS (aceita qualquer turno)
+    // 2. Fallback: vínculo INDEFINIDO ou AMBOS — aceitam qualquer turno por definição, não diverge
     match = candidates.find(p => {
       const nomeMatch = similaridade(p.nome, grupo.nome_normalizado) >= 0.7;
       const unidadeMatch = !p.unidade || !grupo.unidade || p.unidade === grupo.unidade;
       return nomeMatch && unidadeMatch && (!p.turno || p.turno === 'INDEFINIDO' || p.turno === 'AMBOS');
     });
-    if (match) return match;
+    if (match) return { vinculo: match, turnoDivergente: false };
 
-    // 3. Fallback relaxado: só nome — apenas para PJ; CLT exige turno correto
-    if (strictTurno) return null;
-    return candidates.find(p => similaridade(p.nome, grupo.nome_normalizado) >= 0.6);
+    // 3. CLT: fallback por nome + unidade (ignora turno) — cobre MANHÃ/TARDE no mesmo vínculo,
+    //    nunca diverge (salário CLT é único independente de turno)
+    if (strictTurno) {
+      match = candidates.find(p => {
+        const nomeMatch = similaridade(p.nome, grupo.nome_normalizado) >= 0.7;
+        const unidadeMatch = !p.unidade || !grupo.unidade || p.unidade === grupo.unidade;
+        return nomeMatch && unidadeMatch;
+      }) || null;
+      return match ? { vinculo: match, turnoDivergente: false } : null;
+    }
+    // 4. PJ: fallback relaxado — só nome. Vínculo de turno fixo recebendo turno oposto = diverge.
+    match = candidates.find(p => similaridade(p.nome, grupo.nome_normalizado) >= 0.6);
+    if (!match) return null;
+    const turnoFixo = match.turno && match.turno !== 'AMBOS' && match.turno !== 'INDEFINIDO';
+    const turnoDivergente = turnoFixo && match.turno !== grupo.turno;
+    return { vinculo: match, turnoDivergente };
   }
 
   for (const grupo of grupos) {
@@ -501,14 +523,14 @@ async function cruzarComPrestadores(grupos, tipoContrato) {
       // Planilha CLT: só casar com vínculos CLT, turno estrito (sem fallback relaxado)
       const matchCLT = encontrarVinculo(vinculosCLT, grupo, true);
       if (matchCLT) {
-        reconhecidos.push({ ...grupo, ...matchCLT, turno_planilha: grupo.turno, mapeado: false });
+        reconhecidos.push({ ...grupo, ...matchCLT.vinculo, turno_planilha: grupo.turno, mapeado: false, turno_divergente: false });
         continue;
       }
     } else {
       // Planilha PJ: só casar com vínculos PJ, com fallback relaxado
       const matchPJ = encontrarVinculo(vinculosPJ, grupo, false);
       if (matchPJ) {
-        reconhecidos.push({ ...grupo, ...matchPJ, turno_planilha: grupo.turno, mapeado: false });
+        reconhecidos.push({ ...grupo, ...matchPJ.vinculo, turno_planilha: grupo.turno, mapeado: false, turno_divergente: matchPJ.turnoDivergente });
         continue;
       }
     }
@@ -525,21 +547,18 @@ async function cruzarComPrestadores(grupos, tipoContrato) {
   }
 
   // Mesclar entradas com mesmo vínculo:
-  // - Vínculos INDEFINIDO: merge por vinculo_id (MANHÃ + TARDE somam num único registro)
-  // - Vínculos AMBOS: split por turno da planilha → 2 linhas separadas (MANHÃ + TARDE)
-  // - Vínculos com turno fixo: merge por vinculo_id|turno_planilha (não mistura turnos)
+  // - AMBOS: o único caso que legitimamente representa 2 pagamentos (1 por turno trabalhado) →
+  //   chave inclui turno_planilha, gerando até 2 linhas (MANHÃ + TARDE).
+  // - Todo o resto (CLT, INDEFINIDO, turno fixo MANHÃ/TARDE): representa 1 vínculo = 1 pagamento
+  //   mensal único → merge sempre por vinculo_id, mesmo que atendimentos tenham sido detectados
+  //   em grupos/turnos diferentes (evita duplicar a mesma pessoa em 2 linhas, ex: Silvino/Layane).
   const mergedMap = new Map();
   for (const item of reconhecidos) {
     const turnoVinculo = (item.turno || '').toUpperCase();
     const isAmbos = turnoVinculo === 'AMBOS';
-    const isIndefinido = !turnoVinculo || turnoVinculo === 'INDEFINIDO';
-    // AMBOS → chave inclui turno_planilha (cria 2 linhas separadas)
-    // INDEFINIDO → chave só vinculo_id (merge em 1 linha)
     const key = isAmbos
       ? `${item.vinculo_id}|${item.turno_planilha}`
-      : isIndefinido
-        ? String(item.vinculo_id)
-        : `${item.vinculo_id}|${item.turno_planilha}`;
+      : String(item.vinculo_id);
 
     if (mergedMap.has(key)) {
       const ex = mergedMap.get(key);
@@ -550,6 +569,7 @@ async function cruzarComPrestadores(grupos, tipoContrato) {
       ex.atendimentos              = (ex.atendimentos || 0) + (item.atendimentos || 0);
       ex.datas                     = [...(ex.datas || []), ...(item.datas || [])];
       ex._turnos_planilha.add(item.turno_planilha);
+      ex.turno_divergente          = ex.turno_divergente || item.turno_divergente;
     } else {
       mergedMap.set(key, { ...item, _turnos_planilha: new Set([item.turno_planilha]) });
     }
@@ -609,10 +629,13 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
     const ESPECIALIDADES_COM_FIXO_PJ = ['RPG', 'Fisio', 'Acup', 'Neuro', 'SJFisio', 'SJAcup', 'SJRPG'];
     const temFixoPJ = tipoIndividual === 'prestador' && ESPECIALIDADES_COM_FIXO_PJ.includes(espComissao || espVinculo);
 
-    // Para PJ com AMBOS turnos: contar quantos turnos reais foram trabalhados neste mês
-    // Cada turno = 1 fixo. CLT não multiplica — o salário CLT já cobre todos os turnos.
+    // Para PJ com vínculo AMBOS: contar quantos turnos reais foram trabalhados neste mês
+    // Cada turno = 1 fixo. Vínculo de turno fixo (MANHÃ/TARDE) ou INDEFINIDO nunca dobra —
+    // representa um único contrato, mesmo que atendimentos tenham sido mesclados de turnos
+    // diferentes. CLT não multiplica — o salário CLT já cobre todos os turnos.
     let numTurnos = 1;
-    if (tipoIndividual === 'prestador' && item._turnos_planilha instanceof Set) {
+    const turnoVinculoItem = (item.turno || '').toUpperCase();
+    if (tipoIndividual === 'prestador' && turnoVinculoItem === 'AMBOS' && item._turnos_planilha instanceof Set) {
       const turnosReais = [...item._turnos_planilha].filter(t => t === 'MANHÃ' || t === 'TARDE');
       numTurnos = Math.max(1, turnosReais.length);
     }
@@ -677,6 +700,11 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
       valor_bruto: resultado.total,
       tipo_calculo: resultado.tipo_calculo,
       revisao_manual: resultado.tipo_calculo === 'clt_revisao_manual',
+      // Vínculo de turno fixo (MANHÃ/TARDE) recebeu atendimento do turno oposto — pode estar
+      // faltando um 2º vínculo/fixo (caso real: Silvino) ou ser só uma cobertura ocasional
+      // (caso real: Bruna Loretta). Admin decide na tela: "extra" ou "criar vínculo do turno".
+      turno_divergente: !!item.turno_divergente,
+      turnos_detectados: item._turnos_planilha instanceof Set ? [...item._turnos_planilha] : [item.turno_planilha],
     };
   }));
 
@@ -810,10 +838,74 @@ async function calcularFinanceiroUploadLinha(input) {
   });
 }
 
+/**
+ * Sincroniza prestador_vinculos.ativo com base no período mais recente já cadastrado
+ * em dados_mensais para o tipo informado ('prestador' ou 'clt').
+ *
+ * Regra de negócio: o vínculo só fica ativo se aparece na planilha do período mais
+ * recente daquele tipo. Permite importar planilhas antigas fora de ordem sem efeito —
+ * sempre resincroniza contra o período mais recente já existente no banco (não contra
+ * o período que acabou de ser confirmado).
+ *
+ * Depois recalcula usuarios.status ('ativo'/'inativo') com base em ter ao menos 1
+ * vínculo ativo (PJ ou CLT) — usuarios 'pendente' (cadastro não confirmado) não são
+ * tocados. Não altera usuarios.ativo (campo usado pelo login) — inativo continua
+ * acessando o sistema e seu próprio histórico, só sai das listas de "ativos".
+ *
+ * @param {'prestador'|'clt'} tipoColaborador
+ */
+async function sincronizarStatusAtivos(tipoColaborador) {
+  const ultimoPeriodo = await db('dados_mensais')
+    .where('tipo_colaborador', tipoColaborador)
+    .orderBy('ano', 'desc')
+    .orderBy('mes', 'desc')
+    .first(['mes', 'ano']);
+
+  if (!ultimoPeriodo) return;
+
+  const vinculosDoUltimoPeriodo = await db('dados_mensais')
+    .where({ tipo_colaborador: tipoColaborador, mes: ultimoPeriodo.mes, ano: ultimoPeriodo.ano })
+    .whereNotNull('vinculo_id')
+    .pluck('vinculo_id');
+
+  await db('prestador_vinculos')
+    .where('tipo_contrato', tipoColaborador)
+    .update({ ativo: false });
+
+  if (vinculosDoUltimoPeriodo.length > 0) {
+    await db('prestador_vinculos')
+      .whereIn('id', vinculosDoUltimoPeriodo)
+      .update({ ativo: true });
+  }
+
+  // usuarios.status deriva de "tem ao menos 1 vínculo ativo, de qualquer tipo"
+  const prestadorIdsComVinculoAtivo = await db('prestador_vinculos')
+    .where('ativo', true)
+    .distinct('prestador_id')
+    .pluck('prestador_id');
+
+  const baseQuery = db('usuarios')
+    .where('tipo', 'prestador')
+    .whereIn('status', ['ativo', 'inativo']); // nunca tocar em 'pendente' ou outros estados
+
+  if (prestadorIdsComVinculoAtivo.length > 0) {
+    await baseQuery.clone()
+      .whereNotIn('id', prestadorIdsComVinculoAtivo)
+      .update({ status: 'inativo' });
+
+    await baseQuery.clone()
+      .whereIn('id', prestadorIdsComVinculoAtivo)
+      .update({ status: 'ativo' });
+  } else {
+    await baseQuery.update({ status: 'inativo' });
+  }
+}
+
 module.exports = {
   processarAtendimentos,
   recalcularItem,
   calcularFinanceiroUploadLinha,
+  sincronizarStatusAtivos,
   detectarTipoContrato,
   detectarMesAno,
   clinicaParaUnidade,

@@ -50,6 +50,11 @@ const CalcularPagamentos = () => {
   const [conflitosClt, setConflitosClt] = useState([]); // lista original
   const [conflitosDescartados, setConflitosDescartados] = useState(new Set()); // prestador_ids ignorados ("já contemplado")
 
+  // Turnos divergentes detectados (vínculo de turno fixo recebeu atendimento do turno oposto)
+  const [turnosDivergentes, setTurnosDivergentes] = useState([]);
+  const [turnosDivergentesResolvidos, setTurnosDivergentesResolvidos] = useState(new Set()); // chave vinculo_id|turno_vinculo
+  const [criandoVinculoTurno, setCriandoVinculoTurno] = useState(null); // chave em criação (loading)
+
   // Etapa 2: mapeamentos resolvidos pelo admin
   const [mapeamentosNovos, setMapeamentosNovos] = useState([]);
 
@@ -122,6 +127,10 @@ const CalcularPagamentos = () => {
       } else {
         setConflitosClt([]);
       }
+
+      // Turnos divergentes detectados
+      setTurnosDivergentes(data.turnos_divergentes || []);
+      setTurnosDivergentesResolvidos(new Set());
 
       // Preparar itens calculados para a etapa 3
       setItensCalculados(data.calculados);
@@ -211,6 +220,43 @@ const CalcularPagamentos = () => {
     setAno(String(anoAtual));
     setConflitosClt([]);
     setConflitosDescartados(new Set());
+    setTurnosDivergentes([]);
+    setTurnosDivergentesResolvidos(new Set());
+    setCriandoVinculoTurno(null);
+  };
+
+  // ── Ações sobre turnos divergentes ─────────────────────────────────────────
+  const chaveTurnoDivergente = (t) => `${t.vinculo_id}|${t.turno_vinculo}`;
+
+  // "É extra" — admin confirma que é cobertura ocasional, mantém como está (já mesclado)
+  const marcarComoExtra = (t) => {
+    setTurnosDivergentesResolvidos(prev => new Set(prev).add(chaveTurnoDivergente(t)));
+  };
+
+  // "Criar vínculo" — cria o vínculo do turno detectado pra esse profissional
+  const criarVinculoTurno = async (t) => {
+    const chave = chaveTurnoDivergente(t);
+    const turnoNovo = (t.turnos_detectados || []).find(turno => turno !== t.turno_vinculo) || null;
+    if (!turnoNovo) {
+      setErro(`Não foi possível identificar o turno novo de ${t.nome}.`);
+      return;
+    }
+    setCriandoVinculoTurno(chave);
+    setErro(null);
+    try {
+      await api.post(`/atendimentos/prestadores/${t.prestador_id}/criar-vinculo-turno`, {
+        especialidade: t.especialidade,
+        unidade: t.unidade,
+        turno: turnoNovo,
+        meta_mensal: null,
+        valor_fixo_base: null,
+      });
+      setTurnosDivergentesResolvidos(prev => new Set(prev).add(chave));
+    } catch (err) {
+      setErro(err.response?.data?.error || `Erro ao criar vínculo de ${turnoNovo} para ${t.nome}.`);
+    } finally {
+      setCriandoVinculoTurno(null);
+    }
   };
 
   // ── Ações sobre conflitos CLT ──────────────────────────────────────────────
@@ -238,6 +284,7 @@ const CalcularPagamentos = () => {
 
   // Conflitos visíveis (não marcados como contemplados)
   const conflitosVisiveis = conflitosClt.filter(c => !conflitosDescartados.has(c.prestador_id));
+  const turnosDivergentesVisiveis = turnosDivergentes.filter(t => !turnosDivergentesResolvidos.has(chaveTurnoDivergente(t)));
 
   const mesAnoLabel = mes && ano
     ? `${MESES[parseInt(mes)]} ${ano}`
@@ -588,6 +635,83 @@ const CalcularPagamentos = () => {
             </div>
           )}
 
+          {/* ── Banner de turnos divergentes ── */}
+          {turnosDivergentesVisiveis.length > 0 && (
+            <div style={{
+              borderRadius: 12, border: '1px solid rgba(129,140,248,0.4)',
+              background: 'rgba(129,140,248,0.07)', padding: '1rem 1.25rem',
+              marginBottom: '1rem',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.85rem' }}>
+                <ShieldAlert size={18} style={{ color: '#818cf8', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontWeight: 700, color: '#818cf8', fontSize: '0.9rem' }}>
+                    {turnosDivergentesVisiveis.length} possível(is) turno extra
+                  </span>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 1 }}>
+                    Vínculo é de um turno só, mas detectamos atendimento também no outro turno.
+                    Pode ser cobertura ocasional (extra) ou um turno novo que falta cadastrar.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {turnosDivergentesVisiveis.map(t => {
+                  const chave = chaveTurnoDivergente(t);
+                  const turnoNovo = (t.turnos_detectados || []).find(turno => turno !== t.turno_vinculo);
+                  const criando = criandoVinculoTurno === chave;
+                  return (
+                    <div key={chave} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '0.5rem 0.75rem', borderRadius: 8,
+                      background: 'rgba(0,0,0,0.15)', gap: '0.75rem', flexWrap: 'wrap',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.83rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {t.nome}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                          {t.especialidade} · {t.unidade} · vínculo é {t.turno_vinculo}, atendeu também {turnoNovo}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                        <button
+                          onClick={() => marcarComoExtra(t)}
+                          disabled={criando}
+                          title="Cobertura ocasional — manter como está, mesclado no vínculo existente"
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '0.3rem',
+                            padding: '0.28rem 0.7rem', borderRadius: 6,
+                            border: '1px solid rgba(129,140,248,0.4)', background: 'transparent',
+                            color: '#818cf8', cursor: criando ? 'not-allowed' : 'pointer', fontSize: '0.7rem', fontWeight: 600,
+                            opacity: criando ? 0.5 : 1,
+                          }}
+                        >
+                          <CheckSquare size={11} /> É extra
+                        </button>
+                        <button
+                          onClick={() => criarVinculoTurno(t)}
+                          disabled={criando}
+                          title={`Criar vínculo de ${turnoNovo} pra esse profissional`}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '0.3rem',
+                            padding: '0.28rem 0.7rem', borderRadius: 6,
+                            border: 'none', background: 'rgba(34,197,94,0.15)',
+                            color: '#22c55e', cursor: criando ? 'not-allowed' : 'pointer', fontSize: '0.7rem', fontWeight: 600,
+                          }}
+                        >
+                          {criando
+                            ? <><RefreshCw size={11} style={{ animation: 'spin 0.8s linear infinite' }} /> Criando...</>
+                            : <>+ Criar vínculo {turnoNovo}</>}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Tabela de cálculos */}
           <div className="cp-card" style={{ padding: '1.25rem 1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem', padding: '0 0.25rem' }}>
@@ -611,6 +735,15 @@ const CalcularPagamentos = () => {
                 itens={itensCalculados}
                 onChange={setItensCalculados}
               />
+            )}
+
+            {/* Erro local — repetido aqui (perto do botão) porque o aviso global do topo
+                fica fora de vista quando a tabela é longa e o usuário rolou até o fim */}
+            {erro && (
+              <div className="cp-alert cp-alert-error" style={{ marginTop: '1.5rem' }}>
+                <AlertTriangle size={18} />
+                <span>{erro}</span>
+              </div>
             )}
 
             {/* Dados existentes — opção substituir */}

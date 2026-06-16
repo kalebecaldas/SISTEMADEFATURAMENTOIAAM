@@ -106,17 +106,26 @@ const Dashboard = () => {
 
     const fetchStats = async () => {
         try {
-            setTimeout(() => {
-                setStats({
-                    totalPrestadores: 12,
-                    notasPendentes: 5,
-                    faturamentoMes: 45000,
-                    contratosGerados: 8
-                });
-                setLoading(false);
-            }, 1000);
+            const mesAtual = new Date().getMonth() + 1;
+            const anoAtual = new Date().getFullYear();
+
+            const [prestadoresRes, faturamentoRes] = await Promise.all([
+                api.get('/prestadores'),
+                api.get(`/upload/verificar/${mesAtual}/${anoAtual}`).catch(() => ({ data: null }))
+            ]);
+
+            const ativos = (prestadoresRes.data || []).filter(p => p.status !== 'inativo').length;
+            const faturamento = faturamentoRes.data?.consolidado?.valor_total || 0;
+
+            setStats({
+                totalPrestadores: ativos,
+                notasPendentes: 0,
+                faturamentoMes: faturamento,
+                contratosGerados: 0
+            });
         } catch (error) {
             console.error('Erro ao buscar estatísticas:', error);
+        } finally {
             setLoading(false);
         }
     };

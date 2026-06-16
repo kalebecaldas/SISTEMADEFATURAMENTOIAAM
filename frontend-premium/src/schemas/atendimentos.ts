@@ -51,6 +51,17 @@ export const conflitoCltSchema = z.object({
   motivo: z.string().optional(),
 });
 
+export const turnoDivergenteSchema = z.object({
+  prestador_id: z.number().optional().nullable(),
+  vinculo_id: z.number().optional().nullable(),
+  nome: z.string(),
+  especialidade: z.string().optional().nullable(),
+  unidade: z.string().optional().nullable(),
+  turno_vinculo: z.string().optional().nullable(),
+  turnos_detectados: z.array(z.string().nullable()).optional(),
+  valor_clinica: z.number().optional().nullable(),
+});
+
 export const resumoAnaliseSchema = z.object({
   reconhecidos: z.number(),
   nao_reconhecidos: z.number(),
@@ -67,6 +78,7 @@ export const analisarAtendimentosResponseSchema = z.object({
   calculados: z.array(itemCalculadoSchema),
   nao_reconhecidos: z.array(naoReconhecidoSchema),
   conflitos_clt: z.array(conflitoCltSchema),
+  turnos_divergentes: z.array(turnoDivergenteSchema).optional(),
   resumo: resumoAnaliseSchema,
 });
 

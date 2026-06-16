@@ -106,31 +106,34 @@ const PaymentNotifications = () => {
     };
 
     const handleSendMass = async () => {
-        // Filtrar apenas colaboradores com comprovante
-        const comComprovante = dados.filter(d => comprovantes[d.prestador_id]);
+        // Filtrar colaboradores com comprovante e deduplicar por prestador_id —
+        // profissional com múltiplos vínculos (manhã+tarde) só deve receber 1 email.
+        const prestadorIdsComComprovante = [...new Set(
+            dados.filter(d => comprovantes[d.prestador_id]).map(d => d.prestador_id)
+        )];
 
-        if (comComprovante.length === 0) {
+        if (prestadorIdsComComprovante.length === 0) {
             alert('Nenhum colaborador possui comprovante enviado!');
             return;
         }
 
-        if (!window.confirm(`Enviar comprovantes para ${comComprovante.length} colaborador(es)?`)) return;
+        if (!window.confirm(`Enviar comprovantes para ${prestadorIdsComComprovante.length} colaborador(es)?`)) return;
 
         setSending(true);
         let sucessos = 0;
         let erros = 0;
 
         try {
-            for (const dado of comComprovante) {
+            for (const prestadorId of prestadorIdsComComprovante) {
                 try {
                     await api.post('/comprovantes/enviar-email', {
-                        colaborador_id: dado.prestador_id,
+                        colaborador_id: prestadorId,
                         mes,
                         ano
                     });
                     sucessos++;
                 } catch (error) {
-                    console.error(`Erro ao enviar para ${dado.prestador_nome}:`, error);
+                    console.error(`Erro ao enviar para prestador ${prestadorId}:`, error);
                     erros++;
                 }
                 // Pequeno delay entre envios
@@ -167,9 +170,13 @@ const PaymentNotifications = () => {
         }).format(value);
     };
 
+    // dados tem 1 linha por vínculo — um profissional com manhã+tarde aparece 2x.
+    // totalValores soma corretamente (cada vínculo é um pagamento real), mas contagem
+    // de "prestadores" e "com comprovante" precisa deduplicar por prestador_id.
+    const prestadorIdsUnicos = [...new Set(dados.map(d => d.prestador_id))];
     const totalValores = dados.reduce((sum, d) => sum + parseFloat(d.valor_liquido || 0), 0);
     const metasBatidas = dados.filter(d => d.meta_batida).length;
-    const comComprovante = dados.filter(d => comprovantes[d.prestador_id]).length;
+    const comComprovante = prestadorIdsUnicos.filter(id => comprovantes[id]).length;
 
     return (
         <div className="payment-notifications-page">
@@ -181,7 +188,7 @@ const PaymentNotifications = () => {
                     disabled={sending || comComprovante === 0}
                 >
                     <Mail size={20} />
-                    <span>Enviar Comprovantes ({comComprovante}/{dados.length})</span>
+                    <span>Enviar Comprovantes ({comComprovante}/{prestadorIdsUnicos.length})</span>
                 </button>
             </div>
 
@@ -220,7 +227,7 @@ const PaymentNotifications = () => {
                     <div className="stat-card">
                         <Users size={24} />
                         <div>
-                            <span className="stat-value">{dados.length}</span>
+                            <span className="stat-value">{prestadorIdsUnicos.length}</span>
                             <span className="stat-label">Prestadores</span>
                         </div>
                     </div>
@@ -257,9 +264,9 @@ const PaymentNotifications = () => {
                                 <th>Colaborador</th>
                                 <th>Especialidade</th>
                                 <th>Valor Líquido</th>
-                                <th>Meta</th>
+                                <th>Bateu Meta</th>
                                 <th>Faltas</th>
-                                <th>Status</th>
+                                <th>Meta (R$)</th>
                                 <th>Comprovante</th>
                                 <th>Ações</th>
                             </tr>
@@ -337,7 +344,7 @@ const PaymentNotifications = () => {
                                         </span>
                                     </td>
                                     <td>
-                                        {formatCurrency(dado.meta_mensal || 5000)}
+                                        {dado.meta_mensal ? formatCurrency(dado.meta_mensal) : '—'}
                                     </td>
                                     <td>
                                         <button

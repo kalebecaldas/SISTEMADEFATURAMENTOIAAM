@@ -27,36 +27,6 @@ const adicionarCamposStatus = async () => {
         const hasContratoId = await db.schema.hasColumn('usuarios', 'contrato_id');
         const hasMetaMensal = await db.schema.hasColumn('usuarios', 'meta_mensal');
 
-        // #region agent log
-        try {
-            fetch('http://127.0.0.1:7245/ingest/c587a5fd-0753-44cb-be2b-c15533efa8d7', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'debug-session',
-                    runId: 'initial',
-                    hypothesisId: 'H1',
-                    location: 'backend/database/migrations/status_prestadores.js:24',
-                    message: 'usuarios column presence before status migration',
-                    data: {
-                        hasStatusColumn,
-                        hasCadastroConfirmado,
-                        hasTokenConfirmacao,
-                        hasDataConfirmacao,
-                        hasTelefone,
-                        hasEspecialidade,
-                        hasUnidade,
-                        hasContratoId,
-                        hasMetaMensal
-                    },
-                    timestamp: Date.now()
-                })
-            }).catch(() => {});
-        } catch (_) {
-            // Ignorar falhas de log
-        }
-        // #endregion
-
         let columnsAdded = false;
 
         await db.schema.table('usuarios', (table) => {

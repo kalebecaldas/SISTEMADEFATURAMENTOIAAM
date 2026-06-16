@@ -225,60 +225,65 @@ router.put('/:id/status', authenticateToken, requireAdmin, asyncHandler(async (r
  */
 router.get('/dashboard/:mes/:ano', authenticateToken, requireAdmin, asyncHandler(async (req, res) => {
     const { mes, ano } = req.params;
+    const mesInt = parseInt(mes);
+    const anoInt = parseInt(ano);
 
-    // Buscar todos os prestadores que têm dados neste mês
-    const prestadores = await db('dados_mensais as dm')
+    // Um profissional pode ter múltiplos vínculos (registros em dados_mensais) no mesmo mês —
+    // agrupar por prestador e somar valor_liquido evita contá-lo várias vezes no dashboard.
+    const prestadoresAgregados = await db('dados_mensais as dm')
         .join('usuarios as u', 'dm.prestador_id', 'u.id')
-        .leftJoin('notas_fiscais as nf', function () {
-            this.on('nf.prestador_id', '=', 'dm.prestador_id')
-                .andOn('nf.mes', '=', db.raw('?', [parseInt(mes)]))
-                .andOn('nf.ano', '=', db.raw('?', [parseInt(ano)]));
-        })
-        .select(
-            'u.id as prestador_id',
-            'u.nome',
-            'u.email',
-            'u.especialidade',
-            'dm.valor_liquido',
-            'dm.meta_batida',
-            'nf.id as nota_id',
-            'nf.status as nota_status',
-            'nf.data_envio',
-            'nf.observacoes'
-        )
-        .where({
-            'dm.mes': parseInt(mes),
-            'dm.ano': parseInt(ano)
-        })
+        .select('u.id as prestador_id', 'u.nome', 'u.email', 'u.especialidade')
+        .sum('dm.valor_liquido as valor_liquido')
+        .max('dm.meta_batida as meta_batida')
+        .where({ 'dm.mes': mesInt, 'dm.ano': anoInt })
+        .groupBy('u.id', 'u.nome', 'u.email', 'u.especialidade')
         .orderBy('u.nome');
 
-    // Calcular estatísticas
-    const total = prestadores.length;
-    const enviadas = prestadores.filter(p => p.nota_id).length;
-    const pendentes = total - enviadas;
-    const aprovadas = prestadores.filter(p => p.nota_status === 'aprovado').length;
+    // notas_fiscais pode ter mais de um registro por prestador/mês (reenvio após reprovação) —
+    // pegar apenas a mais recente por prestador em vez de deixar o JOIN multiplicar linhas.
+    const notas = await db('notas_fiscais')
+        .where({ mes: mesInt, ano: anoInt })
+        .orderBy('id', 'desc');
 
-    res.json({
-        mes: parseInt(mes),
-        ano: parseInt(ano),
-        estatisticas: {
-            total,
-            enviadas,
-            pendentes,
-            aprovadas
-        },
-        prestadores: prestadores.map(p => ({
+    const notaMaisRecentePorPrestador = new Map();
+    for (const nota of notas) {
+        if (!notaMaisRecentePorPrestador.has(nota.prestador_id)) {
+            notaMaisRecentePorPrestador.set(nota.prestador_id, nota);
+        }
+    }
+
+    const prestadores = prestadoresAgregados.map(p => {
+        const nota = notaMaisRecentePorPrestador.get(p.prestador_id);
+        return {
             prestador_id: p.prestador_id,
             nome: p.nome,
             email: p.email,
             especialidade: p.especialidade,
             valor_liquido: p.valor_liquido,
             meta_batida: p.meta_batida,
-            nota_enviada: !!p.nota_id,
-            nota_status: p.nota_status || 'pendente',
-            data_envio: p.data_envio,
-            observacoes: p.observacoes
-        }))
+            nota_enviada: !!nota,
+            nota_status: nota?.status || 'pendente',
+            data_envio: nota?.data_envio || null,
+            observacoes: nota?.observacoes || null,
+        };
+    });
+
+    // Calcular estatísticas
+    const total = prestadores.length;
+    const enviadas = prestadores.filter(p => p.nota_enviada).length;
+    const pendentes = total - enviadas;
+    const aprovadas = prestadores.filter(p => p.nota_status === 'aprovado').length;
+
+    res.json({
+        mes: mesInt,
+        ano: anoInt,
+        estatisticas: {
+            total,
+            enviadas,
+            pendentes,
+            aprovadas
+        },
+        prestadores
     });
 }));
 

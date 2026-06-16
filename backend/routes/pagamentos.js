@@ -57,7 +57,7 @@ router.get('/:mes/:ano', authenticateToken, requireAdmin, asyncHandler(async (re
             'u.nome as prestador_nome',
             'u.email as prestador_email',
             'u.especialidade',
-            'u.meta_mensal',
+            'dm.meta_mensal',
             'dm.mes',
             'dm.ano',
             'dm.valor_liquido',
@@ -73,7 +73,7 @@ router.get('/:mes/:ano', authenticateToken, requireAdmin, asyncHandler(async (re
             'dm.comprovante_enviado',
             'dm.data_envio_comprovante'
         )
-        .where({ 'dm.mes': parseInt(mes), 'dm.ano': parseInt(ano) })
+        .where({ 'dm.mes': parseInt(mes), 'dm.ano': parseInt(ano), 'u.status': 'ativo' })
         .orderBy('u.nome');
 
     res.json({
@@ -241,7 +241,7 @@ router.post('/enviar-email-massa/:mes/:ano', authenticateToken, requireAdmin, as
             'u.nome',
             'u.email',
             'u.especialidade',
-            'u.meta_mensal',
+            'dm.meta_mensal',
             'u.status',
             'dm.valor_liquido',
             'dm.faltas',
@@ -276,7 +276,7 @@ router.post('/enviar-email-massa/:mes/:ano', authenticateToken, requireAdmin, as
                 valor_liquido: prestador.valor_liquido,
                 faltas: prestador.faltas,
                 meta_batida: prestador.meta_batida,
-                meta_mensal: prestador.meta_mensal || 5000,
+                meta_mensal: prestador.meta_mensal,
                 especialidade: prestador.especialidade,
                 valor_editado: prestador.valor_editado,
                 status: prestador.status
