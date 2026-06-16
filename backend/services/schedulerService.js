@@ -96,7 +96,7 @@ class SchedulerService {
         )
         .where({
           'u.tipo_colaborador': 'prestador_servico',
-          'u.ativo': 1,
+          'u.ativo': true,
           'dm.mes': mesAtual,
           'dm.ano': anoReferencia
         })
@@ -186,7 +186,7 @@ class SchedulerService {
         .select('u.id', 'u.nome', 'u.email', 'dm.mes', 'dm.ano')
         .where({
           'u.tipo': 'prestador',
-          'u.ativo': 1,
+          'u.ativo': true,
           'dm.mes': mesAtual,
           'dm.ano': anoAtual
         })

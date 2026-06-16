@@ -203,10 +203,10 @@ async function importarArquivo({ caminho, aba: abaArg, mes, ano, tipo_colaborado
       // vínculo órfão/inativo sobre um ativo só porque casou turno/unidade por coincidência.
       const porTipo = () => db('prestador_vinculos').where({ prestador_id: usuario.id, tipo_contrato: tipo_colaborador });
       if (turno !== 'INDEFINIDO') {
-        vinculoExistente = await porTipo().where({ turno, especialidade, unidade, ativo: 1 }).first();
+        vinculoExistente = await porTipo().where({ turno, especialidade, unidade, ativo: true }).first();
       }
       if (!vinculoExistente) {
-        vinculoExistente = await porTipo().where({ especialidade, ativo: 1 }).first();
+        vinculoExistente = await porTipo().where({ especialidade, ativo: true }).first();
       }
       if (!vinculoExistente) {
         // último recurso: aceita inativo, mantendo turno+unidade exatos se conhecidos

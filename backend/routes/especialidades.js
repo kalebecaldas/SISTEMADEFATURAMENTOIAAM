@@ -28,7 +28,7 @@ router.post('/pj', authenticateToken, requireAdmin, asyncHandler(async (req, res
     valor_fixo_base: fixoVal,
     meta_mensal: metaVal,
     tipo_contrato: 'prestador',
-    ativo: 1,
+    ativo: true,
   });
   const row = await db('comissoes_tabela').where('id', id).first();
   res.status(201).json(row);
@@ -99,9 +99,9 @@ router.post('/clt', authenticateToken, requireAdmin, asyncHandler(async (req, re
     pct_meta_extra: parseFloat(pct_meta_extra) || 0,
     limiar_meta_extra: parseFloat(limiar_meta_extra) || 0,
     desconto_por_falta: parseFloat(desconto_por_falta) || 0,
-    tem_calculo_automatico: tem_calculo_automatico ? 1 : 0,
+    tem_calculo_automatico: !!tem_calculo_automatico,
     observacoes: observacoes || null,
-    ativo: 1,
+    ativo: true,
   });
   const row = await db('especialidades_clt').where('id', id).first();
   res.status(201).json(row);

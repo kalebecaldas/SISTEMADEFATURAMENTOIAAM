@@ -32,7 +32,7 @@ class ContratoService {
 
             // 1. Buscar modelo
             const modelo = await db('contratos_modelos')
-                .where({ id: modeloId, ativo: 1 })
+                .where({ id: modeloId, ativo: true })
                 .first();
 
             if (!modelo) {

@@ -640,7 +640,7 @@ router.post('/prestadores/:id/tornar-clt', authenticateToken, requireAdmin, asyn
       valor_fixo_base: valor_fixo_base ? parseFloat(valor_fixo_base) : null,
       desconto_por_falta: 20,
       meta_mensal: meta_mensal ? parseFloat(meta_mensal) : null,
-      ativo: 1,
+      ativo: true,
     });
 
     // Atualizar tipo_colaborador do usuario
@@ -709,7 +709,7 @@ router.post('/prestadores/:id/criar-vinculo-turno', authenticateToken, requireAd
       valor_fixo_base: valor_fixo_base != null ? parseFloat(valor_fixo_base) : null,
       desconto_por_falta: 20,
       meta_mensal: meta_mensal != null ? parseFloat(meta_mensal) : null,
-      ativo: 1,
+      ativo: true,
     });
 
     console.log(`✅ Novo vínculo PJ criado para ${usuario.nome}: ${especialidade} ${turno} ${unidade}`);

@@ -66,7 +66,7 @@ async function cadastrarPrestadorRapido(params) {
     meta_mensal: meta_mensal != null ? parseFloat(meta_mensal) : null,
     valor_fixo_base: valor_fixo_base != null ? parseFloat(valor_fixo_base) : null,
     desconto_por_falta: 20,
-    ativo: 1,
+    ativo: true,
   }).returning('id');
 
   let vinculoId = Array.isArray(vinculoInsert) ? vinculoInsert[0] : vinculoInsert;
