@@ -21,7 +21,7 @@ router.get('/stats', authenticateToken, requireAdmin, asyncHandler(async (req, r
             'mes',
             'ano',
             db.raw('COUNT(*) as total'),
-            db.raw('SUM(CASE WHEN meta_batida = 1 THEN 1 ELSE 0 END) as metas_batidas')
+            db.raw('SUM(CASE WHEN meta_batida THEN 1 ELSE 0 END) as metas_batidas')
         )
         .groupBy('mes', 'ano')
         .orderBy('metas_batidas', 'desc')

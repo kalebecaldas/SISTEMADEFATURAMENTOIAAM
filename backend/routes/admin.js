@@ -50,7 +50,7 @@ router.get('/dashboard', authenticateToken, requireAdmin, async (req, res) => {
         db.raw('SUM(valor_liquido) as valor_total'),
         db.raw('AVG(valor_liquido) as valor_medio'),
         db.raw('SUM(faltas) as total_faltas'),
-        db.raw('SUM(CASE WHEN meta_batida = 1 THEN 1 ELSE 0 END) as metas_batidas')
+        db.raw('SUM(CASE WHEN meta_batida THEN 1 ELSE 0 END) as metas_batidas')
       )
       .first();
 
