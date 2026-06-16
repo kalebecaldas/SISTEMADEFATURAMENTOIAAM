@@ -3,6 +3,10 @@ import { Calendar, DollarSign, Target, TrendingUp, AlertCircle, Users, Briefcase
 import api from '../services/api';
 import '../styles/ProviderPaymentHistory.css';
 
+// Sistema tem histórico desde 2021 — gerar dinamicamente até o ano atual + 1
+const anoAtualPPH = new Date().getFullYear();
+const ANOS_DISPONIVEIS = Array.from({ length: anoAtualPPH - 2021 + 2 }, (_, i) => 2021 + i);
+
 const ProviderPaymentHistory = () => {
     const [mes, setMes] = useState(new Date().getMonth() + 1);
     const [ano, setAno] = useState(new Date().getFullYear());
@@ -69,7 +73,7 @@ const ProviderPaymentHistory = () => {
                 <div className="filter-group">
                     <label>Ano:</label>
                     <select value={ano} onChange={(e) => setAno(parseInt(e.target.value))}>
-                        {[2024, 2025, 2026].map(y => (
+                        {ANOS_DISPONIVEIS.map(y => (
                             <option key={y} value={y}>{y}</option>
                         ))}
                     </select>

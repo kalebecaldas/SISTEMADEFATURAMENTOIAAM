@@ -4,6 +4,10 @@ import api from '../services/api';
 import ComprovantesModal from '../components/ComprovantesModal';
 import '../styles/PaymentNotifications.css';
 
+// Sistema tem histórico desde 2021 — gerar dinamicamente até o ano atual + 1
+const anoAtualPN = new Date().getFullYear();
+const ANOS_DISPONIVEIS = Array.from({ length: anoAtualPN - 2021 + 2 }, (_, i) => 2021 + i);
+
 const PaymentNotifications = () => {
     const [mes, setMes] = useState(new Date().getMonth() + 1);
     const [ano, setAno] = useState(new Date().getFullYear());
@@ -214,7 +218,7 @@ const PaymentNotifications = () => {
                 <div className="filter-group">
                     <label>Ano:</label>
                     <select value={ano} onChange={(e) => setAno(parseInt(e.target.value))}>
-                        {[2024, 2025, 2026].map(y => (
+                        {ANOS_DISPONIVEIS.map(y => (
                             <option key={y} value={y}>{y}</option>
                         ))}
                     </select>

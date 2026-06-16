@@ -10,6 +10,10 @@ const MESES_NOMES = {
     9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
 };
 
+// Sistema tem histórico desde 2021 — gerar dinamicamente até o ano atual + 1
+const anoAtualAR = new Date().getFullYear();
+const ANOS_DISPONIVEIS = Array.from({ length: anoAtualAR - 2021 + 2 }, (_, i) => 2021 + i);
+
 const AdvancedReports = () => {
     const [stats, setStats] = useState(null);
     const [ranking, setRanking] = useState([]);
@@ -175,7 +179,7 @@ const AdvancedReports = () => {
                             <div className="filter-group">
                                 <label>Ano:</label>
                                 <select value={ano} onChange={(e) => setAno(parseInt(e.target.value))}>
-                                    {[2024, 2025, 2026].map(y => (
+                                    {ANOS_DISPONIVEIS.map(y => (
                                         <option key={y} value={y}>{y}</option>
                                     ))}
                                 </select>
@@ -230,7 +234,7 @@ const AdvancedReports = () => {
                             <div className="filter-group">
                                 <label>Ano:</label>
                                 <select value={turnosAno} onChange={(e) => setTurnosAno(parseInt(e.target.value))}>
-                                    {[2024, 2025, 2026].map(y => (
+                                    {ANOS_DISPONIVEIS.map(y => (
                                         <option key={y} value={y}>{y}</option>
                                     ))}
                                 </select>

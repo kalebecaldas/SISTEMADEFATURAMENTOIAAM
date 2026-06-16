@@ -3,6 +3,10 @@ import { FileText, Eye, Search, CheckCircle, XCircle, AlertCircle, Calendar, X, 
 import api from '../services/api';
 import '../styles/Invoices.css';
 
+// Sistema tem histórico desde 2021 — gerar dinamicamente até o ano atual + 1
+const anoAtualInv = new Date().getFullYear();
+const ANOS_DISPONIVEIS = Array.from({ length: anoAtualInv - 2021 + 2 }, (_, i) => 2021 + i);
+
 const Invoices = () => {
     const [prestadores, setPrestadores] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -327,8 +331,9 @@ const Invoices = () => {
                         {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
                     <select value={yearFilter} onChange={(e) => setYearFilter(Number(e.target.value))}>
-                        <option value={2024}>2024</option>
-                        <option value={2025}>2025</option>
+                        {ANOS_DISPONIVEIS.map(y => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
                     </select>
                     <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                         <option value="">Todos os Status</option>

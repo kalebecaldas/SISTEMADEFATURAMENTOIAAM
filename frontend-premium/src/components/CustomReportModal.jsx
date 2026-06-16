@@ -24,6 +24,10 @@ const MESES = [
     { value: 12, label: 'Dezembro' }
 ];
 
+// Sistema tem histórico desde 2021 — gerar dinamicamente até o ano atual + 1
+const anoAtualCRM = new Date().getFullYear();
+const ANOS = Array.from({ length: anoAtualCRM - 2021 + 2 }, (_, i) => 2021 + i);
+
 function CustomReportModal({ isOpen, onClose }) {
     const [mesInicio, setMesInicio] = useState(new Date().getMonth() + 1);
     const [anoInicio, setAnoInicio] = useState(new Date().getFullYear());
@@ -550,7 +554,7 @@ function CustomReportModal({ isOpen, onClose }) {
                             <div className="input-group">
                                 <label>Ano Inicial</label>
                                 <select value={anoInicio} onChange={(e) => setAnoInicio(parseInt(e.target.value))}>
-                                    {[2024, 2025, 2026].map(ano => (
+                                    {ANOS.map(ano => (
                                         <option key={ano} value={ano}>{ano}</option>
                                     ))}
                                 </select>
