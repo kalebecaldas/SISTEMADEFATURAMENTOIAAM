@@ -98,12 +98,17 @@ router.get('/stats', authenticateToken, requireAdmin, asyncHandler(async (req, r
         })
         .first();
 
-    // Calcular médias dividindo pelo número de meses
-    const media3 = (soma3Meses?.total || 0) / 3;
-    const media6 = (soma6Meses?.total || 0) / 6;
-    const media12 = (soma12Meses?.total || 0) / 12;
+    // PostgreSQL retorna SUM() como string (preserva precisão NUMERIC); normalizar para número.
+    const total3 = parseFloat(soma3Meses?.total) || 0;
+    const total6 = parseFloat(soma6Meses?.total) || 0;
+    const total12 = parseFloat(soma12Meses?.total) || 0;
 
-    console.log(`📊 Totais: 3M=${soma3Meses?.total?.toFixed(2)} 6M=${soma6Meses?.total?.toFixed(2)} 12M=${soma12Meses?.total?.toFixed(2)}`);
+    // Calcular médias dividindo pelo número de meses
+    const media3 = total3 / 3;
+    const media6 = total6 / 6;
+    const media12 = total12 / 12;
+
+    console.log(`📊 Totais: 3M=${total3.toFixed(2)} 6M=${total6.toFixed(2)} 12M=${total12.toFixed(2)}`);
     console.log(`📊 Médias de FATURAMENTO: 3M=${media3.toFixed(2)} 6M=${media6.toFixed(2)} 12M=${media12.toFixed(2)}`);
 
     res.json({
