@@ -265,7 +265,10 @@ function agruparPorProfissional(faltas) {
     if (f.status === 'suspeita') g.suspeitas++;
     if (f.motivo_deteccao === 'sem_motivo') g.principal++;
   }
-  return [...mapa.values()].sort((a, b) => b.principal - a.principal);
+  // Alfabética: quem confere procura a pessoa, não o recordista de faltas.
+  return [...mapa.values()].sort((a, b) =>
+    String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')
+    || String(a.turno || '').localeCompare(String(b.turno || '')));
 }
 
 module.exports = {

@@ -220,7 +220,10 @@ const EscalasTurnos = () => {
 
   // Só vínculos com turno definido têm escala: INDEFINIDO/AMBOS atendem em qualquer dia.
   const comTurno = useMemo(
-    () => vinculos.filter(v => !['INDEFINIDO', 'AMBOS'].includes(String(v.turno || '').toUpperCase())),
+    () => vinculos
+      .filter(v => !['INDEFINIDO', 'AMBOS'].includes(String(v.turno || '').toUpperCase()))
+      .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')
+        || String(a.turno || '').localeCompare(String(b.turno || ''))),
     [vinculos],
   );
   const pessoas = useMemo(() => {

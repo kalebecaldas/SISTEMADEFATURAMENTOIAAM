@@ -98,7 +98,11 @@ const ConferenciaFaltas = () => {
           && statusDe(d) === 'suspeita').length,
         confirmadas: g.dias.filter(d => statusDe(d) === 'confirmada').length,
       }))
-      .sort((a, b) => b.pendentes - a.pendentes || String(a.nome).localeCompare(String(b.nome)));
+      // Ordem alfabética por nome. Ordenar por "quem tem mais pendência" parecia
+      // útil, mas quem confere procura a pessoa na lista — e aí a ordem tem que ser
+      // previsível. localeCompare pt-BR para acento não jogar nomes para o fim.
+      .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')
+        || String(a.turno || '').localeCompare(String(b.turno || '')));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [faltas, decisoes]);
 
