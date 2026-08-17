@@ -117,16 +117,18 @@ const EscalasTurnos = () => {
   const avisar = (t) => { setMsg(t); setTimeout(() => setMsg(null), 3000); };
 
   const salvarEscala = async (v) => {
-    const dias = rascunho[v.id];
-    if (dias === undefined) return;
+    const r = rascunho[v.id];
+    if (!r) return;
     setSalvando(v.id);
     try {
-      const { data } = await api.put(`/turnos/escalas/${v.id}`, {
-        dias_semana: dias ? [...dias].sort((a, b) => a - b) : [],
-      });
-      setVinculos(prev => prev.map(x => x.id === v.id ? { ...x, dias_semana: data.dias_semana } : x));
+      const corpo = {};
+      if ('dias' in r) corpo.dias_semana = r.dias ? [...r.dias].sort((a, b) => a - b) : [];
+      if ('modelo_fixo' in r) corpo.modelo_fixo = r.modelo_fixo;
+      if ('valor_fixo_base' in r) corpo.valor_fixo_base = r.valor_fixo_base === '' ? null : r.valor_fixo_base;
+      const { data } = await api.put(`/turnos/escalas/${v.id}`, corpo);
+      setVinculos(prev => prev.map(x => x.id === v.id ? { ...x, ...data, id: x.id } : x));
       setRascunho(prev => { const n = { ...prev }; delete n[v.id]; return n; });
-      avisar(`Escala de ${v.nome} salva.`);
+      avisar(`Contrato de ${v.nome} salvo.`);
     } catch (e) {
       setErro(e.response?.data?.error || 'Erro ao salvar escala.');
     } finally {
@@ -281,11 +283,21 @@ const EscalasTurnos = () => {
             seg/qua/sex à tarde. Deixar a semana toda marcada equivale a
             &ldquo;todos os dias em que a unidade abre&rdquo;.
           </p>
+          <p className="escala-ajuda">
+            <strong>Fixo mensal</strong>: valor cheio no mês, e cada falta confirmada
+            desconta o valor dividido por 30. <strong>Fixo por dia trabalhado</strong>:
+            paga o valor a cada dia em que a pessoa compareceu, mesmo que tenha atendido
+            um paciente só — nesse modelo o dia ausente já não é pago, então ele não
+            gera falta a confirmar.
+          </p>
 
           <div className="escala-lista">
             {comTurno.map(v => {
-              const atual = v.id in rascunho ? rascunho[v.id] : parseDias(v.dias_semana);
+              const r = rascunho[v.id] || {};
               const alterado = v.id in rascunho;
+              const atual = 'dias' in r ? r.dias : parseDias(v.dias_semana);
+              const modelo = r.modelo_fixo ?? (v.modelo_fixo || 'mensal');
+              const valorFixo = 'valor_fixo_base' in r ? r.valor_fixo_base : v.valor_fixo_base;
               return (
                 <div key={v.id} className={`escala-linha ${alterado ? 'alterada' : ''}`}>
                   <div className="escala-info">
@@ -300,9 +312,30 @@ const EscalasTurnos = () => {
 
                   <SeletorDias
                     dias={atual}
-                    onChange={(novo) => setRascunho(p => ({ ...p, [v.id]: novo }))}
+                    onChange={(novo) => setRascunho(p => ({ ...p, [v.id]: { ...(p[v.id] || {}), dias: novo } }))}
                     disabled={salvando === v.id}
                   />
+
+                  <div className="escala-fixo">
+                    <select
+                      className="cp-select"
+                      value={modelo}
+                      onChange={e => setRascunho(p => ({ ...p, [v.id]: { ...(p[v.id] || {}), modelo_fixo: e.target.value } }))}
+                      disabled={salvando === v.id}
+                      title="Como o fixo é pago"
+                    >
+                      <option value="mensal">Fixo mensal</option>
+                      <option value="por_dia">Fixo por dia trabalhado</option>
+                    </select>
+                    <input
+                      type="number" step="0.01" min="0" className="cp-select escala-fixo-valor"
+                      value={valorFixo ?? ''}
+                      placeholder={modelo === 'por_dia' ? 'R$/dia' : 'R$/mês'}
+                      onChange={e => setRascunho(p => ({ ...p, [v.id]: { ...(p[v.id] || {}), valor_fixo_base: e.target.value } }))}
+                      disabled={salvando === v.id}
+                      title={modelo === 'por_dia' ? 'Valor pago por dia trabalhado' : 'Valor mensal do fixo'}
+                    />
+                  </div>
 
                   <button
                     className="ui-btn-mini ui-btn-mini--success"

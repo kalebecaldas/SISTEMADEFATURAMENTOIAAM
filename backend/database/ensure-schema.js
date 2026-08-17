@@ -103,6 +103,13 @@ async function ensureSchema() {
                 // outros 2 dias — a Layane atende seg/qua/sex e aparecia com 14
                 // faltas em julho/2026.
                 'dias_semana': (table) => table.string('dias_semana', 20),
+                // Como o fixo é pago:
+                //   'mensal'  → valor cheio no mês, falta desconta valor/30 (padrão)
+                //   'por_dia' → valor x dias efetivamente trabalhados. Quem atende em
+                //               dias alternados recebe por dia comparecido, mesmo que
+                //               tenha atendido um paciente só; dia não trabalhado
+                //               simplesmente não entra, então não há falta a descontar.
+                'modelo_fixo': (table) => table.string('modelo_fixo', 12).defaultTo('mensal'),
             };
             for (const [coluna, fn] of Object.entries(colunasVigencia)) {
                 if (!await db.schema.hasColumn('prestador_vinculos', coluna)) {

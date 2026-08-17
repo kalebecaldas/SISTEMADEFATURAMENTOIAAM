@@ -86,13 +86,13 @@ async function carregarAusencias(prestadorIds, inicio, fim) {
   return mapa;
 }
 
-/** Escala do vínculo (pode ser null) ∩ dias em que a unidade abre. */
-async function carregarEscalasDosVinculos(vinculoIds) {
+/** Escala e modelo de fixo de cada vínculo. */
+async function carregarConfigDosVinculos(vinculoIds) {
   if (!vinculoIds.length) return new Map();
   const linhas = await db('prestador_vinculos')
     .whereIn('id', vinculoIds)
-    .select('id', 'dias_semana');
-  return new Map(linhas.map(v => [v.id, v.dias_semana]));
+    .select('id', 'dias_semana', 'modelo_fixo');
+  return new Map(linhas.map(v => [v.id, v]));
 }
 
 /** Feriados do intervalo, indexados por data ISO. */
@@ -135,7 +135,7 @@ async function detectarFaltas(rows, calculados, periodo) {
     [...new Set(calculados.map(c => c.prestador_id).filter(Boolean))],
     periodo.inicio, periodo.fim,
   );
-  const escalas = await carregarEscalasDosVinculos(
+  const configVinculo = await carregarConfigDosVinculos(
     [...new Set(calculados.map(c => c.vinculo_id).filter(Boolean))],
   );
 
@@ -174,6 +174,13 @@ async function detectarFaltas(rows, calculados, periodo) {
     const ehCLT = item.tipo_contrato === 'clt';
     if (!ehCLT && !ESPECIALIDADES_COM_FIXO_PJ.includes(item.especialidade)) continue;
 
+    const cfgVinculo = configVinculo.get(item.vinculo_id) || {};
+
+    // Fixo pago POR DIA trabalhado não gera falta: o dia ausente simplesmente não
+    // foi pago. Marcar falta aqui cobraria a mesma ausência duas vezes — uma pelo
+    // dia que não entrou, outra pelo desconto de fixo/30.
+    if (cfgVinculo.modelo_fixo === 'por_dia') continue;
+
     // Vínculo sem turno definido atende em qualquer horário — não dá para
     // afirmar que faltou num turno específico.
     const turnoContrato = String(item.turno || '').toUpperCase();
@@ -186,7 +193,7 @@ async function detectarFaltas(rows, calculados, periodo) {
     // Dia esperado = unidade aberta ∩ escala do profissional. Quem trabalha
     // seg/qua/sex não pode ser acusado de faltar na terça.
     const diasUnidade = String(cfg.dias_semana).split(',').map(n => parseInt(n, 10));
-    const escalaVinculo = escalas.get(item.vinculo_id);
+    const escalaVinculo = cfgVinculo.dias_semana;
     const diasPessoa = escalaVinculo
       ? new Set(String(escalaVinculo).split(',').map(n => parseInt(n, 10)))
       : null;

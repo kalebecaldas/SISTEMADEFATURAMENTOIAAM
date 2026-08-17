@@ -171,7 +171,8 @@ router.get('/escalas/lista', authenticateToken, requireAdmin, async (req, res) =
       .where('pv.ativo', true)
       .whereNull('pv.data_fim')
       .select('pv.id', 'pv.prestador_id', 'pv.turno', 'pv.unidade', 'pv.especialidade',
-              'pv.dias_semana', 'pv.tipo_contrato', 'u.nome')
+              'pv.dias_semana', 'pv.tipo_contrato', 'pv.modelo_fixo', 'pv.valor_fixo_base',
+              'pv.meta_mensal', 'u.nome')
       .orderBy(['u.nome', 'pv.turno']);
 
     const ausencias = await db('ausencias_programadas as a')
@@ -188,20 +189,39 @@ router.get('/escalas/lista', authenticateToken, requireAdmin, async (req, res) =
 
 router.put('/escalas/:vinculoId', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const dias = Array.isArray(req.body.dias_semana)
-      ? req.body.dias_semana
-      : String(req.body.dias_semana ?? '').split(',');
-    const limpos = [...new Set(dias.map(d => parseInt(d, 10)).filter(d => DIAS_VALIDOS.has(d)))].sort();
+    const patch = {};
 
-    // Vazio ou a semana inteira = null: "todos os dias em que a unidade abre".
-    // Guardar a semana cheia criaria uma escala que precisa ser mantida em sincronia
-    // com o horário da unidade sem necessidade.
-    const valor = (!limpos.length || limpos.length >= 7) ? null : limpos.join(',');
+    if ('dias_semana' in req.body) {
+      const dias = Array.isArray(req.body.dias_semana)
+        ? req.body.dias_semana
+        : String(req.body.dias_semana ?? '').split(',');
+      const limpos = [...new Set(dias.map(d => parseInt(d, 10)).filter(d => DIAS_VALIDOS.has(d)))].sort();
+      // Vazio ou a semana inteira = null: "todos os dias em que a unidade abre".
+      // Guardar a semana cheia criaria uma escala que precisa ser mantida em
+      // sincronia com o horário da unidade sem necessidade.
+      patch.dias_semana = (!limpos.length || limpos.length >= 7) ? null : limpos.join(',');
+    }
 
-    const n = await db('prestador_vinculos').where('id', req.params.vinculoId)
-      .update({ dias_semana: valor });
+    if ('modelo_fixo' in req.body) {
+      const m = req.body.modelo_fixo === 'por_dia' ? 'por_dia' : 'mensal';
+      patch.modelo_fixo = m;
+    }
+
+    if ('valor_fixo_base' in req.body) {
+      const v = parseFloat(req.body.valor_fixo_base);
+      if (req.body.valor_fixo_base !== '' && req.body.valor_fixo_base !== null && Number.isNaN(v)) {
+        return res.status(400).json({ error: 'valor_fixo_base inválido' });
+      }
+      patch.valor_fixo_base = Number.isNaN(v) ? null : v;
+    }
+
+    if (!Object.keys(patch).length) {
+      return res.status(400).json({ error: 'Nada a atualizar' });
+    }
+
+    const n = await db('prestador_vinculos').where('id', req.params.vinculoId).update(patch);
     if (!n) return res.status(404).json({ error: 'Vínculo não encontrado' });
-    res.json({ sucesso: true, dias_semana: valor });
+    res.json({ sucesso: true, ...patch });
   } catch (e) {
     console.error('❌ Erro ao salvar escala:', e);
     res.status(500).json({ error: 'Erro ao salvar escala' });

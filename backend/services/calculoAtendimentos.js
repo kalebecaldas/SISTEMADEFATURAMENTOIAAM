@@ -470,7 +470,7 @@ async function cruzarComPrestadores(grupos, tipoContrato) {
       'u.id as prestador_id', 'u.nome', 'u.email',
       'pv.id as vinculo_id', 'pv.especialidade', 'pv.unidade', 'pv.turno',
       'pv.meta_mensal', 'pv.valor_fixo_base', 'pv.desconto_por_falta',
-      'pv.tipo_contrato'
+      'pv.tipo_contrato', 'pv.modelo_fixo'
     );
 
   // Separar vínculos CLT e PJ
@@ -722,9 +722,18 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
       numTurnos = Math.max(1, turnosReais.length);
     }
 
-    // Fixo PJ multiplicado pelos turnos trabalhados (só para especialidades com fixo)
+    // Dias em que a pessoa efetivamente compareceu neste vínculo. Basta um
+    // atendimento no dia para o dia contar.
+    const diasTrabalhados = new Set((item.datas || []).map(d => String(d).trim()).filter(Boolean)).size;
+
+    // Dois modelos de fixo:
+    //   mensal  → valor cheio, e a falta desconta valor/30 (padrão histórico)
+    //   por_dia → valor x dias comparecidos. Quem atende em dias alternados recebe
+    //             por dia trabalhado, mesmo que tenha atendido um paciente só; o dia
+    //             não trabalhado nem entra, então não há falta a descontar.
     const fixoBase = temFixoPJ ? (parseFloat(item.valor_fixo_base) || 0) : 0;
-    const fixoEfetivo = fixoBase * numTurnos;
+    const porDia = item.modelo_fixo === 'por_dia';
+    const fixoEfetivo = porDia ? fixoBase * diasTrabalhados : fixoBase * numTurnos;
 
     let resultado;
     if (tipoIndividual === 'clt') {
@@ -748,7 +757,7 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
         valor_clinica_total: item.valor_clinica_total,
         valor_profissional_atend: item.valor_profissional_atend,
         valor_prof_part_oab: item.valor_prof_part_oab || 0,
-        valor_fixo_base: fixoEfetivo,                   // fixo × num_turnos
+        valor_fixo_base: fixoEfetivo,
         desconto_por_falta: item.desconto_por_falta,
         meta_mensal: item.meta_mensal,
         faltas: 0,
@@ -771,9 +780,11 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
       valor_prof_part_oab: item.valor_prof_part_oab || 0,
       valor_profissional_atend: item.valor_profissional_atend,
       meta_mensal: item.meta_mensal,
-      valor_fixo_base: item.valor_fixo_base,    // fixo unitário (1 turno)
+      valor_fixo_base: item.valor_fixo_base,    // fixo unitário (1 turno ou 1 dia)
+      modelo_fixo: porDia ? 'por_dia' : 'mensal',
+      dias_trabalhados: diasTrabalhados,
       num_turnos: numTurnos,                    // quantos turnos foram trabalhados
-      fixo_efetivo: fixoEfetivo,                // fixo × turnos (o que entrou no cálculo)
+      fixo_efetivo: fixoEfetivo,                // o que realmente entrou no cálculo
       faltas: 0,
       extras: 0,
       meta_batida: resultado.meta_batida,
