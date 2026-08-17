@@ -97,6 +97,12 @@ async function ensureSchema() {
                 'data_inicio': (table) => table.date('data_inicio'),
                 'data_fim': (table) => table.date('data_fim'),
                 'motivo_encerramento': (table) => table.string('motivo_encerramento', 200),
+                // Escala semanal DO PROFISSIONAL (ISO: 1=segunda … 7=domingo).
+                // null = trabalha todos os dias em que a unidade abre. Sem isso o
+                // detector de faltas acusa quem trabalha 3x/semana de faltar nos
+                // outros 2 dias — a Layane atende seg/qua/sex e aparecia com 14
+                // faltas em julho/2026.
+                'dias_semana': (table) => table.string('dias_semana', 20),
             };
             for (const [coluna, fn] of Object.entries(colunasVigencia)) {
                 if (!await db.schema.hasColumn('prestador_vinculos', coluna)) {
@@ -369,6 +375,33 @@ async function ensureSchema() {
             console.log('✅ Tabela feriados criada');
         } else {
             console.log('✓ Tabela feriados existe');
+        }
+
+        // ========================================
+        // TABELA: ausencias_programadas  (Fase 3)
+        // Férias, atestado, licença, folga combinada. Dia coberto por aqui não é
+        // falta — o detector já entrega classificado, em vez de fazer o admin
+        // descartar 15 dias de férias um por um.
+        // ========================================
+        if (!await db.schema.hasTable('ausencias_programadas')) {
+            await db.schema.createTable('ausencias_programadas', (table) => {
+                table.increments('id').primary();
+                table.integer('prestador_id').unsigned().notNullable();
+                // null = vale para todos os vínculos da pessoa (férias são da pessoa,
+                // não de um turno específico)
+                table.integer('vinculo_id').unsigned();
+                table.string('tipo', 20).notNullable();   // ferias|atestado|licenca|folga
+                table.date('data_inicio').notNullable();
+                table.date('data_fim').notNullable();
+                table.string('observacao', 200);
+                table.timestamps(true, true);
+
+                table.foreign('prestador_id').references('id').inTable('usuarios').onDelete('CASCADE');
+                table.index(['prestador_id', 'data_inicio', 'data_fim']);
+            });
+            console.log('✅ Tabela ausencias_programadas criada');
+        } else {
+            console.log('✓ Tabela ausencias_programadas existe');
         }
 
         // ========================================

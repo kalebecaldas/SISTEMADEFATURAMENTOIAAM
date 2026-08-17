@@ -13,6 +13,7 @@
  */
 
 const { db } = require('../database/init');
+const { ensureSchema } = require('../database/ensure-schema');
 const { feriadosDoPeriodo } = require('../utils/feriados');
 
 const APPLY = process.argv.includes('--apply');
@@ -35,6 +36,13 @@ const ANO_FINAL = 2030;
 
 async function main() {
   console.log(`\nSeed de turnos e feriados  [${APPLY ? '⚠️  APLICANDO' : 'DRY-RUN'}]\n`);
+
+  // As tabelas nascem no ensureSchema, que roda no boot do servidor. Rodar aqui
+  // deixa o seed independente do deploy ter terminado — é idempotente.
+  if (!await db.schema.hasTable('turnos_config')) {
+    console.log('Tabelas ainda não existem; rodando ensureSchema...\n');
+    await ensureSchema();
+  }
 
   // ── Turnos ────────────────────────────────────────────────────────────────
   let novosTurnos = 0;

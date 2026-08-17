@@ -63,6 +63,38 @@ async function carregarTurnosVigentes(dataRef) {
     .select('*');
 }
 
+/**
+ * Ausências programadas (férias, atestado, licença, folga) que tocam o período.
+ * Indexadas por prestador_id.
+ */
+async function carregarAusencias(prestadorIds, inicio, fim) {
+  if (!prestadorIds.length) return new Map();
+  const linhas = await db('ausencias_programadas')
+    .whereIn('prestador_id', prestadorIds)
+    .where('data_inicio', '<=', ISO(fim))
+    .where('data_fim', '>=', ISO(inicio))
+    .select('*');
+  const mapa = new Map();
+  for (const a of linhas) {
+    if (!mapa.has(a.prestador_id)) mapa.set(a.prestador_id, []);
+    mapa.get(a.prestador_id).push({
+      ...a,
+      ini: String(a.data_inicio).slice(0, 10),
+      fim: String(a.data_fim).slice(0, 10),
+    });
+  }
+  return mapa;
+}
+
+/** Escala do vínculo (pode ser null) ∩ dias em que a unidade abre. */
+async function carregarEscalasDosVinculos(vinculoIds) {
+  if (!vinculoIds.length) return new Map();
+  const linhas = await db('prestador_vinculos')
+    .whereIn('id', vinculoIds)
+    .select('id', 'dias_semana');
+  return new Map(linhas.map(v => [v.id, v.dias_semana]));
+}
+
 /** Feriados do intervalo, indexados por data ISO. */
 async function carregarFeriados(inicio, fim) {
   const linhas = await db('feriados')
@@ -99,6 +131,13 @@ async function detectarFaltas(rows, calculados, periodo) {
   }
 
   const feriados = await carregarFeriados(periodo.inicio, periodo.fim);
+  const ausencias = await carregarAusencias(
+    [...new Set(calculados.map(c => c.prestador_id).filter(Boolean))],
+    periodo.inicio, periodo.fim,
+  );
+  const escalas = await carregarEscalasDosVinculos(
+    [...new Set(calculados.map(c => c.vinculo_id).filter(Boolean))],
+  );
 
   // ── Dias/turnos realmente trabalhados, por profissional ────────────────────
   // Chave do profissional é o nome normalizado que o matcher já usou, então
@@ -133,19 +172,37 @@ async function detectarFaltas(rows, calculados, periodo) {
       .find(t => t.turno === turnoContrato);
     if (!cfg) continue; // unidade/turno sem horário cadastrado
 
-    const diasAbertos = new Set(String(cfg.dias_semana).split(',').map(n => parseInt(n, 10)));
+    // Dia esperado = unidade aberta ∩ escala do profissional. Quem trabalha
+    // seg/qua/sex não pode ser acusado de faltar na terça.
+    const diasUnidade = String(cfg.dias_semana).split(',').map(n => parseInt(n, 10));
+    const escalaVinculo = escalas.get(item.vinculo_id);
+    const diasPessoa = escalaVinculo
+      ? new Set(String(escalaVinculo).split(',').map(n => parseInt(n, 10)))
+      : null;
+    const diasEsperados = new Set(
+      diasPessoa ? diasUnidade.filter(d => diasPessoa.has(d)) : diasUnidade,
+    );
+
+    const minhasAusencias = ausencias.get(item.prestador_id) || [];
     const k = chaveNome(item.nome);
     const dias = trabalhou.get(k) || new Set();
 
     for (let d = new Date(periodo.inicio.getTime()); d <= periodo.fim; d.setUTCDate(d.getUTCDate() + 1)) {
-      if (!diasAbertos.has(diaSemanaISO(d))) continue;
+      if (!diasEsperados.has(diaSemanaISO(d))) continue;
 
       const dia = ISO(d);
       if (dias.has(`${dia}|${turnoContrato}`)) continue; // trabalhou, não é falta
 
       const doDia = feriados.get(dia) || [];
       const feriado = doDia.find(f => !f.unidade || f.unidade === item.unidade);
+      const ausencia = minhasAusencias.find(a =>
+        dia >= a.ini && dia <= a.fim && (!a.vinculo_id || a.vinculo_id === item.vinculo_id));
       const outroTurno = [...dias].some(x => x.startsWith(`${dia}|`));
+
+      let motivo = 'sem_motivo';
+      if (feriado) motivo = 'feriado';
+      else if (ausencia) motivo = ausencia.tipo;       // ferias | atestado | licenca | folga
+      else if (outroTurno) motivo = 'atendeu_outro_turno';
 
       faltas.push({
         prestador_id: item.prestador_id,
@@ -155,11 +212,11 @@ async function detectarFaltas(rows, calculados, periodo) {
         unidade: item.unidade,
         data: dia,
         turno: turnoContrato,
-        motivo_deteccao: feriado ? 'feriado' : (outroTurno ? 'atendeu_outro_turno' : 'sem_motivo'),
-        feriado_nome: feriado ? feriado.nome : null,
-        // Feriado já nasce descartado — aparece na lista para conferência, mas
-        // não conta. O resto nasce suspeito e espera decisão do admin.
-        status: feriado ? 'descartada' : 'suspeita',
+        motivo_deteccao: motivo,
+        feriado_nome: feriado ? feriado.nome : (ausencia ? ausencia.observacao : null),
+        // Feriado e ausência programada já nascem descartados — aparecem na lista
+        // para conferência, mas não contam. O resto espera decisão do admin.
+        status: (feriado || ausencia) ? 'descartada' : 'suspeita',
       });
     }
   }
