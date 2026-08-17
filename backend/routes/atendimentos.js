@@ -381,6 +381,23 @@ router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
     // cálculo até o admin confirmar na tela de conferência — por isso o
     // dados_mensais.faltas continua 0 aqui.
     if (Array.isArray(faltas_detectadas) && faltas_detectadas.length) {
+      // Antes de gravar, limpa a detecção anterior desta competência. O upsert
+      // sozinho só ATUALIZA o que reaparece — o que deixou de valer ficava para
+      // sempre. Depois de cadastrar a escala semanal da Layane (seg/qua/sex), as
+      // 13 faltas dela em terça/quinta/sábado continuaram no banco: 84 das 115
+      // linhas de julho/2026 eram lixo.
+      // Preserva o que o admin já decidiu — confirmada e justificada são decisão
+      // humana e não podem ser apagadas por um reprocessamento.
+      const vinculosDaVez = [...new Set(faltas_detectadas.map(f => f.vinculo_id).filter(Boolean))];
+      if (vinculosDaVez.length) {
+        const limpas = await db('faltas_detectadas')
+          .where({ mes: mesInt, ano: anoInt })
+          .whereIn('vinculo_id', vinculosDaVez)
+          .whereIn('status', ['suspeita', 'descartada'])
+          .del();
+        if (limpas) console.log(`🧹 ${limpas} detecção(ões) de falta anterior(es) descartada(s)`);
+      }
+
       let gravadas = 0;
       for (const f of faltas_detectadas) {
         if (!f.vinculo_id || !f.data || !f.turno) continue;
