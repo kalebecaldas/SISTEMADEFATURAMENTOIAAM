@@ -9,7 +9,11 @@ const ESPECIALIDADES_FALLBACK = ['Fisio', 'Fisio Pelv', 'Neuro', 'Acupuntura', '
 // ---------- Formulário de cadastro rápido inline ----------
 const CadastroRapido = ({ item, tipoContrato, onCadastrado, onCancelar }) => {
   const [form, setForm] = useState({
-    nome: item.nome_planilha,
+    // nome_normalizado, não nome_planilha: o export da clínica traz o nome sujo
+    // ("Pilates Tarde - Christie Anne Clementino Silva - CREFITO: 382419") e salvar
+    // assim cria um cadastro que nunca mais casa com nenhuma planilha — foi o que
+    // aconteceu com a Christie Anne no fechamento de julho/2026.
+    nome: item.nome_normalizado || item.nome_planilha,
     especialidade: 'Fisio',
     unidade: item.unidade || 'MATRIZ',
     turno: item.turno === 'MANHÃ/TARDE' ? 'AMBOS' : (item.turno || 'INDEFINIDO'),
