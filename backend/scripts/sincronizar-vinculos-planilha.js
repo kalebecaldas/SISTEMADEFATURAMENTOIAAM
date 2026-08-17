@@ -103,12 +103,24 @@ async function main() {
   const mudancas = [];
   const semVinculo = [];
 
+  // Quando alguém tem uma linha "(Tarde)" na planilha, a linha sem sufixo é a MANHÃ.
+  // Sem isso a linha sem sufixo casava com o vínculo de TARDE (era o primeiro da lista),
+  // sobrava a linha "(Tarde)" sem par e o script criaria um SEGUNDO vínculo de tarde,
+  // deixando a pessoa sem manhã. Aconteceu com a Bruna Loretta em julho/2026.
+  const temIrmaoComTurno = new Set(
+    daPlanilha.filter(p => p.turno).map(p => p.chave)
+  );
+  for (const p of daPlanilha) {
+    if (!p.turno && temIrmaoComTurno.has(p.chave)) p.turno = 'MANHÃ';
+  }
+
   for (const p of daPlanilha) {
     let candidatos = vinculos.filter(v => norm(v.nome) === p.chave && !usados.has(v.id));
-    // Linha marcada "(Tarde)"/"(Manhã)" prioriza o vínculo daquele turno.
-    if (p.turno && candidatos.length > 1) {
+    // Turno da linha manda: só cai em outro turno se não houver vínculo daquele turno.
+    if (p.turno) {
       const doTurno = candidatos.filter(v => v.turno === p.turno);
       if (doTurno.length) candidatos = doTurno;
+      else if (candidatos.length && temIrmaoComTurno.has(p.chave)) candidatos = [];
     }
     const v = candidatos[0];
     if (!v) { semVinculo.push(p); continue; }

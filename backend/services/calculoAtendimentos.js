@@ -42,10 +42,25 @@ function detectarTurnoPorHora(horaStr) {
 /**
  * Normaliza nome removendo prefixos de turno (ex: "Pilates Manhã - Lana")
  */
+// O sistema da clínica exporta o profissional com enfeites em volta do nome:
+//   "Pilates Tarde - Christie Anne Clementino Silva"      → prefixo de serviço + turno
+//   "Toc - Terap. Ondas de Choque - Douglas Almeida"      → prefixo de procedimento
+//   "Romilton Santos - CRM: 3797"                          → sufixo de conselho
+// Sem remover isso o nome nunca casa com o cadastro. Em julho/2026 esse sufixo sozinho
+// jogou 5 profissionais para "não reconhecido" (Romilton, Franklin, Sandra, Edivaldo,
+// Clemerson) — todos com vínculo ativo no banco.
+const PREFIXO_SERVICO = /^(pilates\s+(?:manh[ãa]|tarde)|toc\s*[-–]\s*terap\.?\s*ondas?\s+de\s+choque)\s*[-–]\s*/i;
+// O número do conselho vem em formatos livres: "CRM: 3797", "CREFITO: 317748-F",
+// "CREFITO: 318422.1.F". Depois da sigla, tudo até o fim da string é registro —
+// tentar casar só dígitos deixava passar os CREFITO com letra/ponto, e aí o nome
+// "Silvino Viana Reis Sobrinho - CREFITO: 317748-F" não casava com o cadastro.
+const SUFIXO_CONSELHO = /\s*[-–]\s*(?:CRM|CRF|CREFITO|CREFONO|COREN|CRO|CRN|CRP|CRBM|CRESS|CRMV)\b.*$/i;
+
 function normalizarNomePlanilha(nome) {
   if (!nome) return '';
   return nome
-    .replace(/^pilates\s+(manh[ãa]|tarde)\s*[-–]?\s*/i, '')
+    .replace(PREFIXO_SERVICO, '')
+    .replace(SUFIXO_CONSELHO, '')
     .replace(/\s*\(manh[ãa]\)\s*$/i, '')
     .replace(/\s*\(tarde\)\s*$/i, '')
     .trim();
