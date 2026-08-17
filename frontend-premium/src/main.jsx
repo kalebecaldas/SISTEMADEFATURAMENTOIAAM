@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './styles/tokens.css'
 import './styles/global.css'
 import './styles/ui.css'
+import './styles/legacy-tokens.css'
 import App from './App.jsx'
 
 import { ThemeProvider } from './context/ThemeContext.jsx'

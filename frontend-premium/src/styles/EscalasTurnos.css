@@ -130,14 +130,6 @@
 .escala-tabela td.obs { color: var(--text-muted); font-size: 0.74rem; max-width: 40ch; }
 .escala-tabela td.vazio { text-align: center; color: var(--text-muted); padding: var(--space-6); }
 
-/* ─── Formulário de ausência ───────────────────────────────────────────── */
-.ausencia-form {
-  display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr 1.4fr auto;
-  gap: var(--space-2);
-  margin-bottom: var(--space-5);
-}
-
 .feriados-head {
   display: flex;
   align-items: flex-start;
@@ -152,15 +144,97 @@
   flex-shrink: 0;
 }
 
-@media (max-width: 1024px) {
-  .ausencia-form { grid-template-columns: 1fr 1fr; }
-}
-
 @media (max-width: 768px) {
   .escalas-page { padding: 1rem; }
   .escala-linha { flex-wrap: wrap; }
   .escala-info { flex-basis: 100%; }
   .seletor-dias { flex: 1; }
-  .ausencia-form { grid-template-columns: 1fr; }
   .escala-tabela { display: block; overflow-x: auto; }
+}
+
+/* ─── Editor de horário da unidade ─────────────────────────────────────── */
+.turno-editor {
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.turno-editor-campos {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.8fr 0.8fr auto;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.turno-editor label,
+.ausencia-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.turno-editor-dias { text-transform: none; }
+
+.turno-editor-acoes {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.escala-tabela tr.linha-inativa td { opacity: 0.5; }
+.escala-tabela td.acoes { display: flex; gap: var(--space-2); }
+
+/* ─── Formulário de ausência em lote ───────────────────────────────────── */
+.ausencia-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  align-items: start;
+}
+
+.ausencia-form .dica {
+  text-transform: none;
+  font-weight: 400;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.select-multi {
+  min-height: 150px;
+  padding: var(--space-2);
+  font-size: 0.8rem;
+}
+
+.select-multi option {
+  padding: 3px var(--space-2);
+  border-radius: 4px;
+}
+
+.ausencia-campos {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.ausencia-campos .campo-obs { grid-column: 1 / -1; }
+.ausencia-campos > button { grid-column: 1 / -1; justify-content: center; }
+
+@media (max-width: 1024px) {
+  .turno-editor-campos { grid-template-columns: 1fr 1fr; }
+  .ausencia-form { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+  .turno-editor-campos { grid-template-columns: 1fr; }
+  .ausencia-campos { grid-template-columns: 1fr; }
+  .escala-tabela td.acoes { flex-direction: column; }
 }

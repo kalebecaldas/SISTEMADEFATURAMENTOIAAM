@@ -82,9 +82,14 @@ const EscalasTurnos = () => {
   const [rascunho, setRascunho] = useState({});
   const [salvando, setSalvando] = useState(null);
 
+  // Ausência aceita vários profissionais de uma vez (recesso coletivo, feriado
+  // prolongado) e repetição anual (férias que se repetem todo ano).
   const [novaAusencia, setNovaAusencia] = useState({
-    prestador_id: '', tipo: 'ferias', data_inicio: '', data_fim: '', observacao: '',
+    prestadores: [], tipo: 'ferias', data_inicio: '', data_fim: '', observacao: '', repetirAnos: 1,
   });
+
+  // Edição do horário da unidade. `null` = nada em edição; objeto = rascunho.
+  const [turnoEdit, setTurnoEdit] = useState(null);
 
   const carregar = async () => {
     setCarregando(true);
@@ -130,16 +135,34 @@ const EscalasTurnos = () => {
   };
 
   const criarAusencia = async () => {
-    const { prestador_id, data_inicio, data_fim } = novaAusencia;
-    if (!prestador_id || !data_inicio || !data_fim) {
-      setErro('Escolha o profissional e o período da ausência.');
+    const { prestadores, data_inicio, data_fim, tipo, observacao, repetirAnos } = novaAusencia;
+    if (!prestadores.length || !data_inicio || !data_fim) {
+      setErro('Escolha ao menos um profissional e o período da ausência.');
       return;
     }
+    const anos = Math.max(1, Math.min(10, Number(repetirAnos) || 1));
+    const desloca = (iso, n) => {
+      const [a, m, d] = iso.split('-').map(Number);
+      return `${a + n}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    };
+
     try {
-      await api.post('/turnos/ausencias', { ...novaAusencia, prestador_id: Number(prestador_id) });
-      setNovaAusencia({ prestador_id: '', tipo: 'ferias', data_inicio: '', data_fim: '', observacao: '' });
+      const chamadas = [];
+      for (const prestador_id of prestadores) {
+        for (let n = 0; n < anos; n++) {
+          chamadas.push(api.post('/turnos/ausencias', {
+            prestador_id: Number(prestador_id),
+            tipo,
+            data_inicio: desloca(data_inicio, n),
+            data_fim: desloca(data_fim, n),
+            observacao: observacao || null,
+          }));
+        }
+      }
+      await Promise.all(chamadas);
+      setNovaAusencia({ prestadores: [], tipo: 'ferias', data_inicio: '', data_fim: '', observacao: '', repetirAnos: 1 });
       await carregar();
-      avisar('Ausência registrada.');
+      avisar(`${chamadas.length} ausência(s) registrada(s).`);
     } catch (e) {
       setErro(e.response?.data?.error || 'Erro ao registrar ausência.');
     }
@@ -152,6 +175,36 @@ const EscalasTurnos = () => {
       avisar('Ausência removida.');
     } catch (e) {
       setErro(e.response?.data?.error || 'Erro ao remover ausência.');
+    }
+  };
+
+  const salvarTurno = async () => {
+    const t = turnoEdit;
+    if (!t.unidade || !t.turno) { setErro('Informe unidade e turno.'); return; }
+    try {
+      const corpo = {
+        unidade: t.unidade, turno: t.turno,
+        hora_inicio: t.hora_inicio, hora_fim: t.hora_fim,
+        dias_semana: [...(t.dias || [])].sort((a, b) => a - b),
+        ativo: t.ativo !== false,
+      };
+      if (t.id) await api.put(`/turnos/${t.id}`, corpo);
+      else await api.post('/turnos', corpo);
+      setTurnoEdit(null);
+      await carregar();
+      avisar('Horário salvo.');
+    } catch (e) {
+      setErro(e.response?.data?.error || 'Erro ao salvar horário.');
+    }
+  };
+
+  const desativarTurno = async (id) => {
+    try {
+      await api.delete(`/turnos/${id}`);
+      await carregar();
+      avisar('Horário desativado.');
+    } catch (e) {
+      setErro(e.response?.data?.error || 'Erro ao desativar horário.');
     }
   };
 
@@ -267,19 +320,86 @@ const EscalasTurnos = () => {
       {/* ── Horário das unidades ────────────────────────────────────────── */}
       {aba === 'turnos' && (
         <div className="escala-card">
-          <p className="escala-ajuda">
-            Base do detector de faltas: sem saber quando a unidade abre, não dá para dizer
-            que a ausência num dia foi falta.
-          </p>
+          <div className="feriados-head">
+            <p className="escala-ajuda">
+              Base do detector de faltas: sem saber quando a unidade abre, não dá para dizer
+              que a ausência num dia foi falta. Desativar preserva o histórico — competências
+              antigas continuam reconstruindo o calendário que valia na época.
+            </p>
+            <button
+              className="cp-btn-secondary"
+              onClick={() => setTurnoEdit({
+                unidade: 'MATRIZ', turno: 'MANHÃ', hora_inicio: '06:30', hora_fim: '12:00',
+                dias: new Set([1, 2, 3, 4, 5]), ativo: true,
+              })}
+            >
+              <Plus size={15} /> Novo horário
+            </button>
+          </div>
+
+          {turnoEdit && (
+            <div className="turno-editor">
+              <div className="turno-editor-campos">
+                <label>
+                  Unidade
+                  <input
+                    className="cp-select" value={turnoEdit.unidade}
+                    onChange={e => setTurnoEdit(t => ({ ...t, unidade: e.target.value.toUpperCase() }))}
+                  />
+                </label>
+                <label>
+                  Turno
+                  <select
+                    className="cp-select" value={turnoEdit.turno}
+                    onChange={e => setTurnoEdit(t => ({ ...t, turno: e.target.value }))}
+                  >
+                    <option value="MANHÃ">MANHÃ</option>
+                    <option value="TARDE">TARDE</option>
+                  </select>
+                </label>
+                <label>
+                  Início
+                  <input
+                    type="time" className="cp-select" value={turnoEdit.hora_inicio}
+                    onChange={e => setTurnoEdit(t => ({ ...t, hora_inicio: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Fim
+                  <input
+                    type="time" className="cp-select" value={turnoEdit.hora_fim}
+                    onChange={e => setTurnoEdit(t => ({ ...t, hora_fim: e.target.value }))}
+                  />
+                </label>
+                <label className="turno-editor-dias">
+                  Dias de funcionamento
+                  <SeletorDias
+                    dias={turnoEdit.dias}
+                    onChange={(novo) => setTurnoEdit(t => ({ ...t, dias: novo }))}
+                  />
+                </label>
+              </div>
+              <div className="turno-editor-acoes">
+                <button className="cp-btn-primary" onClick={salvarTurno}>
+                  <Save size={15} /> Salvar
+                </button>
+                <button className="cp-btn-secondary" onClick={() => setTurnoEdit(null)}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
           <table className="escala-tabela">
             <thead>
               <tr>
-                <th>Unidade</th><th>Turno</th><th>Início</th><th>Fim</th><th>Dias</th><th>Situação</th>
+                <th>Unidade</th><th>Turno</th><th>Início</th><th>Fim</th><th>Dias</th>
+                <th>Situação</th><th />
               </tr>
             </thead>
             <tbody>
               {turnos.map(t => (
-                <tr key={t.id}>
+                <tr key={t.id} className={t.ativo ? '' : 'linha-inativa'}>
                   <td>{t.unidade}</td>
                   <td>{t.turno}</td>
                   <td className="num">{t.hora_inicio}</td>
@@ -293,6 +413,19 @@ const EscalasTurnos = () => {
                     <span className={`ui-chip ${t.ativo ? 'ui-chip--success' : ''}`}>
                       {t.ativo ? 'ativo' : 'inativo'}
                     </span>
+                  </td>
+                  <td className="acoes">
+                    <button
+                      className="ui-btn-mini ui-btn-mini--outline"
+                      onClick={() => setTurnoEdit({ ...t, dias: parseDias(t.dias_semana) })}
+                    >
+                      <Save size={11} /> Editar
+                    </button>
+                    {t.ativo && (
+                      <button className="ui-btn-mini ui-btn-mini--danger" onClick={() => desativarTurno(t.id)}>
+                        <Trash2 size={11} /> Desativar
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -310,39 +443,76 @@ const EscalasTurnos = () => {
           </p>
 
           <div className="ausencia-form">
-            <select
-              value={novaAusencia.prestador_id}
-              onChange={e => setNovaAusencia(p => ({ ...p, prestador_id: e.target.value }))}
-              className="cp-select"
-            >
-              <option value="">— Profissional —</option>
-              {pessoas.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
-            </select>
-            <select
-              value={novaAusencia.tipo}
-              onChange={e => setNovaAusencia(p => ({ ...p, tipo: e.target.value }))}
-              className="cp-select"
-            >
-              {TIPOS_AUSENCIA.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
-            </select>
-            <input
-              type="date" className="cp-select" aria-label="Início"
-              value={novaAusencia.data_inicio}
-              onChange={e => setNovaAusencia(p => ({ ...p, data_inicio: e.target.value }))}
-            />
-            <input
-              type="date" className="cp-select" aria-label="Fim"
-              value={novaAusencia.data_fim}
-              onChange={e => setNovaAusencia(p => ({ ...p, data_fim: e.target.value }))}
-            />
-            <input
-              type="text" className="cp-select" placeholder="Observação (opcional)"
-              value={novaAusencia.observacao}
-              onChange={e => setNovaAusencia(p => ({ ...p, observacao: e.target.value }))}
-            />
-            <button className="cp-btn-primary" onClick={criarAusencia}>
-              <Plus size={15} /> Registrar
-            </button>
+            <label className="campo-largo">
+              Profissionais <span className="dica">(segure Ctrl/Cmd para vários)</span>
+              <select
+                multiple size={6} className="cp-select select-multi"
+                value={novaAusencia.prestadores}
+                onChange={e => setNovaAusencia(p => ({
+                  ...p, prestadores: [...e.target.selectedOptions].map(o => o.value),
+                }))}
+              >
+                {pessoas.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
+              </select>
+              <button
+                type="button" className="ui-btn-mini ui-btn-mini--outline"
+                onClick={() => setNovaAusencia(p => ({
+                  ...p,
+                  prestadores: p.prestadores.length === pessoas.length ? [] : pessoas.map(([id]) => String(id)),
+                }))}
+              >
+                {novaAusencia.prestadores.length === pessoas.length ? 'Limpar seleção' : 'Selecionar todos'}
+              </button>
+            </label>
+
+            <div className="ausencia-campos">
+              <label>
+                Tipo
+                <select
+                  className="cp-select" value={novaAusencia.tipo}
+                  onChange={e => setNovaAusencia(p => ({ ...p, tipo: e.target.value }))}
+                >
+                  {TIPOS_AUSENCIA.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
+                </select>
+              </label>
+              <label>
+                De
+                <input
+                  type="date" className="cp-select" value={novaAusencia.data_inicio}
+                  onChange={e => setNovaAusencia(p => ({ ...p, data_inicio: e.target.value }))}
+                />
+              </label>
+              <label>
+                Até
+                <input
+                  type="date" className="cp-select" value={novaAusencia.data_fim}
+                  onChange={e => setNovaAusencia(p => ({ ...p, data_fim: e.target.value }))}
+                />
+              </label>
+              <label>
+                Repetir por
+                <select
+                  className="cp-select" value={novaAusencia.repetirAnos}
+                  onChange={e => setNovaAusencia(p => ({ ...p, repetirAnos: e.target.value }))}
+                >
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <option key={n} value={n}>{n === 1 ? 'só este ano' : `${n} anos`}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="campo-obs">
+                Observação
+                <input
+                  type="text" className="cp-select" placeholder="opcional"
+                  value={novaAusencia.observacao}
+                  onChange={e => setNovaAusencia(p => ({ ...p, observacao: e.target.value }))}
+                />
+              </label>
+              <button className="cp-btn-primary" onClick={criarAusencia}>
+                <Plus size={15} /> Registrar
+                {novaAusencia.prestadores.length > 1 && ` (${novaAusencia.prestadores.length})`}
+              </button>
+            </div>
           </div>
 
           <table className="escala-tabela">

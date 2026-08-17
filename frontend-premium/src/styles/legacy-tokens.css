@@ -1,0 +1,264 @@
+/**
+ * Padronização das telas que ainda não foram reescritas: Colaboradores,
+ * Relatórios, Contratos, Usuários, Documentos, Notas.
+ *
+ * Elas compartilham as mesmas classes (page-header, data-table, btn-primary,
+ * glass-card, modal-*, status-badge), então dá para alinhá-las ao design system
+ * sem tocar em 20 arquivos de JSX.
+ *
+ * Por que a classe aparece duplicada (.data-table.data-table): o CSS de cada
+ * página é importado pelo próprio componente, ou seja, DEPOIS deste arquivo na
+ * ordem final da folha. Empate de especificidade seria vencido por eles. Dobrar
+ * a classe sobe para 0,2,0 e garante a vitória sem recorrer a !important.
+ */
+
+/* ─── Cabeçalho de página ───────────────────────────────────────────────── */
+.page-header.page-header {
+  margin-bottom: var(--space-5);
+}
+
+.page-header.page-header h1,
+.page-header.page-header h2 {
+  font-size: 1.8rem;
+  margin: 0 0 var(--space-2) 0;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.page-header.page-header p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* ─── Superfícies ───────────────────────────────────────────────────────── */
+.glass-card.glass-card,
+.section.section {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* ─── Tabelas ───────────────────────────────────────────────────────────── */
+.data-table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.data-table.data-table th {
+  text-align: left;
+  padding: var(--space-3);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-light);
+  background: transparent;
+}
+
+.data-table.data-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+}
+
+.data-table.data-table tbody tr:last-child td { border-bottom: none; }
+
+.data-table.data-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.data-table.data-table tbody tr:hover td { background: var(--surface-sunken); }
+
+/* Valores monetários e datas alinham melhor com largura fixa de dígito. */
+.data-table.data-table td .valor,
+.data-table.data-table td.valor,
+.data-table.data-table td.num { font-variant-numeric: tabular-nums; }
+
+/* ─── Botões ────────────────────────────────────────────────────────────── */
+.btn-primary.btn-primary,
+.btn-secondary.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.6rem 1.15rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: filter var(--transition-fast), background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.btn-primary.btn-primary {
+  background: var(--gradient-primary);
+  color: #fff;
+}
+
+.btn-primary.btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+
+.btn-secondary.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.btn-secondary.btn-secondary:hover:not(:disabled) { border-color: var(--primary); }
+
+.btn-primary.btn-primary:disabled,
+.btn-secondary.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-icon.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-icon.btn-icon:hover {
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
+/* ─── Formulários e filtros ─────────────────────────────────────────────── */
+.form-group.form-group,
+.filter-group.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-group.form-group label,
+.filter-group.filter-group label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.form-group.form-group input,
+.form-group.form-group select,
+.form-group.form-group textarea,
+.filter-group.filter-group input,
+.filter-group.filter-group select {
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  transition: border-color var(--transition-fast);
+}
+
+.form-group.form-group input:focus,
+.form-group.form-group select:focus,
+.form-group.form-group textarea:focus,
+.filter-group.filter-group input:focus,
+.filter-group.filter-group select:focus {
+  border-color: var(--primary);
+}
+
+/* ─── Modais ────────────────────────────────────────────────────────────── */
+.modal-overlay.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.modal-content.modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-actions.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+/* ─── Badges de status ──────────────────────────────────────────────────── */
+.status-badge.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--bg-input);
+  color: var(--text-muted);
+}
+
+.status-badge.ativo, .status-badge.aprovado, .status-badge.pago, .status-badge.enviado {
+  background: var(--badge-success-bg);
+  color: var(--badge-success-fg);
+}
+
+.status-badge.pendente, .status-badge.aguardando {
+  background: var(--badge-warn-bg);
+  color: var(--badge-warn-fg);
+}
+
+.status-badge.inativo, .status-badge.rejeitado, .status-badge.cancelado {
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-fg);
+}
+
+/* ─── Números de destaque ───────────────────────────────────────────────── */
+.stat-value.stat-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.stat-label.stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ─── Estado de carregamento ────────────────────────────────────────────── */
+.loading.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}

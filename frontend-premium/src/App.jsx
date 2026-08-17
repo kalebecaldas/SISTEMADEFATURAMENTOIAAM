@@ -1,29 +1,39 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './pages/Login';
-import ConfirmRegistration from './pages/ConfirmRegistration';
-import Dashboard from './pages/Dashboard';
-import UploadPage from './pages/Upload';
-import Invoices from './pages/Invoices';
-import Collaborators from './pages/Collaborators';
-import Settings from './pages/Settings';
-import Contracts from './pages/Contracts';
-import GenerateContract from './pages/GenerateContract';
-import Documents from './pages/Documents';
-import MyInvoices from './pages/MyInvoices';
-import PaymentNotifications from './pages/PaymentNotifications';
-import ProviderPaymentHistory from './pages/ProviderPaymentHistory';
-import InvoiceDashboard from './pages/InvoiceDashboard';
-import AdvancedReports from './pages/AdvancedReports';
-import ContractManagement from './pages/ContractManagement';
-import ContractsHub from './pages/ContractsHub';
-import FinanceHub from './pages/FinanceHub';
-import Users from './pages/Users';
-import MyContracts from './pages/MyContracts';
-import CalcularPagamentos from './pages/CalcularPagamentos';
-import EspecialidadesAdmin from './pages/EspecialidadesAdmin';
-import EscalasTurnos from './pages/EscalasTurnos';
+
+// Cada página vira um chunk próprio: o bundle único passava de 1,3 MB e todo
+// primeiro acesso baixava o app inteiro para ver uma tela só.
+const ConfirmRegistration = lazy(() => import('./pages/ConfirmRegistration'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const UploadPage = lazy(() => import('./pages/Upload'));
+const Invoices = lazy(() => import('./pages/Invoices'));
+const Collaborators = lazy(() => import('./pages/Collaborators'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Contracts = lazy(() => import('./pages/Contracts'));
+const GenerateContract = lazy(() => import('./pages/GenerateContract'));
+const Documents = lazy(() => import('./pages/Documents'));
+const MyInvoices = lazy(() => import('./pages/MyInvoices'));
+const PaymentNotifications = lazy(() => import('./pages/PaymentNotifications'));
+const ProviderPaymentHistory = lazy(() => import('./pages/ProviderPaymentHistory'));
+const InvoiceDashboard = lazy(() => import('./pages/InvoiceDashboard'));
+const AdvancedReports = lazy(() => import('./pages/AdvancedReports'));
+const ContractManagement = lazy(() => import('./pages/ContractManagement'));
+const ContractsHub = lazy(() => import('./pages/ContractsHub'));
+const FinanceHub = lazy(() => import('./pages/FinanceHub'));
+const Users = lazy(() => import('./pages/Users'));
+const MyContracts = lazy(() => import('./pages/MyContracts'));
+const CalcularPagamentos = lazy(() => import('./pages/CalcularPagamentos'));
+const EspecialidadesAdmin = lazy(() => import('./pages/EspecialidadesAdmin'));
+const EscalasTurnos = lazy(() => import('./pages/EscalasTurnos'));
+
+/** Fallback enquanto o chunk da rota chega. */
+const CarregandoRota = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+    <div className="cp-spinner" />
+  </div>
+);
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -45,6 +55,7 @@ function App() {
 
   return (
     <Router>
+      <Suspense fallback={<CarregandoRota />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/confirmar-cadastro" element={<ConfirmRegistration />} />
@@ -129,6 +140,7 @@ function App() {
           } />
         </Route>
       </Routes>
+      </Suspense>
     </Router>
   );
 }
