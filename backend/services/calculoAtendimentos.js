@@ -170,6 +170,18 @@ function detectarMesAno(datas, tipoContrato) {
 // e somados separadamente (valor profissional da planilha = face value)
 const CONVENIOS_PART_OAB = ['particular', 'oab - ordem dos advogados do brasil', 'oab'];
 
+/**
+ * Especialidades PJ que têm FIXO no contrato.
+ *
+ * Importa em dois lugares e eles precisam concordar: o cálculo desconta a falta
+ * do fixo (fixo/30 x faltas), e o detector só faz sentido para quem tem fixo —
+ * sem fixo não há de onde descontar, então detectar falta de fisioterapeuta
+ * pélvica ou de pilates é ruído puro na conferência.
+ *
+ * Fisio aqui é a ortopédica; "Fisio Pelv" e "Pilates" ficam de fora de propósito.
+ */
+const ESPECIALIDADES_COM_FIXO_PJ = ['RPG', 'Fisio', 'Acup', 'Neuro', 'SJFisio', 'SJAcup', 'SJRPG'];
+
 function isConvenioParticular(convenio) {
   if (!convenio) return false;
   const c = String(convenio).toLowerCase().trim();
@@ -696,7 +708,6 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
     const tipoIndividual = item.tipo_contrato === 'clt' ? 'clt' : 'prestador';
 
     // Especialidades PJ que têm fixo (CLT não usa fixo por turno — regido por salário)
-    const ESPECIALIDADES_COM_FIXO_PJ = ['RPG', 'Fisio', 'Acup', 'Neuro', 'SJFisio', 'SJAcup', 'SJRPG'];
     // Mesma precedência da comissão: o vínculo manda.
     const temFixoPJ = tipoIndividual === 'prestador' && ESPECIALIDADES_COM_FIXO_PJ.includes(espVinculo || espComissao);
 
@@ -894,7 +905,6 @@ async function calcularFinanceiroUploadLinha(input) {
     comissao = await buscarComissao(espComissao, unidade);
   }
 
-  const ESPECIALIDADES_COM_FIXO_PJ = ['RPG', 'Fisio', 'Acup', 'Neuro', 'SJFisio', 'SJAcup', 'SJRPG'];
   const espKey = espComissao || especialidade;
   const temFixoPJ = espKey && ESPECIALIDADES_COM_FIXO_PJ.includes(espKey);
   const fixoEfetivo = temFixoPJ ? valorFixoSheet : 0;
@@ -1000,4 +1010,5 @@ module.exports = {
   detectarTurnoPorHora,
   normalizarNomePlanilha,
   normalizarEspParaComissao,
+  ESPECIALIDADES_COM_FIXO_PJ,
 };

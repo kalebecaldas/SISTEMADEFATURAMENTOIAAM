@@ -162,7 +162,18 @@ async function detectarFaltas(rows, calculados, periodo) {
 
   // ── Para cada vínculo reconhecido, varre o calendário do período ───────────
   const faltas = [];
+  const { ESPECIALIDADES_COM_FIXO_PJ } = require('./calculoAtendimentos');
+
   for (const item of calculados) {
+    // Falta só importa para quem tem de onde descontar. No PJ o desconto sai do
+    // fixo (fixo/30 x faltas), então quem não tem fixo — fisioterapia pélvica e
+    // pilates — nunca pega falta, e listar esses dias é ruído puro: em julho/2026
+    // eram 20 dos 31 dias em conferência.
+    // CLT continua entrando: o salário não é descontado aqui, mas a contabilidade
+    // precisa da contagem para fazer o desconto dela.
+    const ehCLT = item.tipo_contrato === 'clt';
+    if (!ehCLT && !ESPECIALIDADES_COM_FIXO_PJ.includes(item.especialidade)) continue;
+
     // Vínculo sem turno definido atende em qualquer horário — não dá para
     // afirmar que faltou num turno específico.
     const turnoContrato = String(item.turno || '').toUpperCase();
