@@ -94,10 +94,9 @@ async function main() {
   const vinculos = await db('prestador_vinculos as pv')
     .join('usuarios as u', 'u.id', 'pv.prestador_id')
     .where('pv.tipo_contrato', 'prestador')
-    .where('pv.ativo', true)
     .whereNull('pv.data_fim')
     .select('pv.id', 'pv.prestador_id', 'pv.especialidade', 'pv.unidade', 'pv.turno',
-            'pv.valor_fixo_base', 'pv.meta_mensal', 'u.nome');
+            'pv.valor_fixo_base', 'pv.meta_mensal', 'pv.ativo', 'u.nome');
 
   const usados = new Set();
   const mudancas = [];
@@ -122,11 +121,20 @@ async function main() {
       if (doTurno.length) candidatos = doTurno;
       else if (candidatos.length && temIrmaoComTurno.has(p.chave)) candidatos = [];
     }
+    // Vínculo ATIVO tem prioridade sobre desativado, e turno definido sobre
+    // INDEFINIDO. Sem isso o script casava com sobras antigas ("DESCONHECIDA",
+    // "INDEFINIDO") e reativava lixo em vez do contrato em uso.
+    candidatos = candidatos.sort((a, b) =>
+      (b.ativo === true) - (a.ativo === true)
+      || (a.turno === 'INDEFINIDO') - (b.turno === 'INDEFINIDO')
+      || (b.id - a.id));
     const v = candidatos[0];
     if (!v) { semVinculo.push(p); continue; }
     usados.add(v.id);
 
     const patch = {};
+    // Estar na planilha do mês é prova de que o contrato existe: reativa.
+    if (!v.ativo) patch.ativo = true;
     if (p.especialidade && p.especialidade !== v.especialidade) patch.especialidade = p.especialidade;
     if (p.valor_fixo_base != null && !igual(p.valor_fixo_base, v.valor_fixo_base)) patch.valor_fixo_base = p.valor_fixo_base;
     if (p.meta_mensal != null && !igual(p.meta_mensal, v.meta_mensal)) patch.meta_mensal = p.meta_mensal;

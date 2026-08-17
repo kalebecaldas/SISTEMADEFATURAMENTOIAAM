@@ -62,6 +62,43 @@ export const turnoDivergenteSchema = z.object({
   valor_clinica: z.number().optional().nullable(),
 });
 
+/** Uma ausência detectada: vínculo x dia x turno em que a unidade abriu e ninguém foi atendido. */
+export const faltaDetectadaSchema = z
+  .object({
+    prestador_id: z.number().optional().nullable(),
+    vinculo_id: z.number().optional().nullable(),
+    nome: z.string().optional().nullable(),
+    especialidade: z.string().optional().nullable(),
+    unidade: z.string().optional().nullable(),
+    data: z.string(),
+    turno: z.string(),
+    motivo_deteccao: z.string().optional().nullable(),
+    feriado_nome: z.string().optional().nullable(),
+    status: z.string().optional().nullable(),
+  })
+  .passthrough();
+
+export const faltaAgrupadaSchema = z
+  .object({
+    prestador_id: z.number().optional().nullable(),
+    vinculo_id: z.number().optional().nullable(),
+    nome: z.string().optional().nullable(),
+    especialidade: z.string().optional().nullable(),
+    unidade: z.string().optional().nullable(),
+    turno: z.string().optional().nullable(),
+    dias: z.array(
+      z.object({
+        data: z.string(),
+        motivo: z.string().optional().nullable(),
+        feriado_nome: z.string().optional().nullable(),
+        status: z.string().optional().nullable(),
+      }),
+    ),
+    suspeitas: z.number().optional(),
+    principal: z.number().optional(),
+  })
+  .passthrough();
+
 export const resumoAnaliseSchema = z.object({
   reconhecidos: z.number(),
   nao_reconhecidos: z.number(),
@@ -79,6 +116,8 @@ export const analisarAtendimentosResponseSchema = z.object({
   nao_reconhecidos: z.array(naoReconhecidoSchema),
   conflitos_clt: z.array(conflitoCltSchema),
   turnos_divergentes: z.array(turnoDivergenteSchema).optional(),
+  faltas_detectadas: z.array(faltaDetectadaSchema).optional(),
+  faltas_por_profissional: z.array(faltaAgrupadaSchema).optional(),
   resumo: resumoAnaliseSchema,
 });
 

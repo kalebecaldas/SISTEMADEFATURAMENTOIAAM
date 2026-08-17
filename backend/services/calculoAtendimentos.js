@@ -579,6 +579,24 @@ async function cruzarComPrestadores(grupos, tipoContrato) {
       ? `${item.vinculo_id}|${item.turno_planilha}`
       : String(item.vinculo_id);
 
+    // Subtotal por turno da planilha. Sem isso o merge perde de vista quanto veio
+    // de cada turno, e não dá pra separar o que foi EXTRA (turno fora do contrato)
+    // do que é o turno contratado — que é o que a Fase 5 precisa mostrar.
+    const somarTurno = (alvo, origem) => {
+      const t = origem.turno_planilha || 'INDEFINIDO';
+      if (!alvo._por_turno) alvo._por_turno = {};
+      const acc = alvo._por_turno[t] || {
+        turno: t, valor_clinica: 0, valor_clinica_total: 0,
+        valor_profissional_atend: 0, valor_prof_part_oab: 0, atendimentos: 0,
+      };
+      acc.valor_clinica            += origem.valor_clinica || 0;
+      acc.valor_clinica_total      += origem.valor_clinica_total || 0;
+      acc.valor_profissional_atend += origem.valor_profissional_atend || 0;
+      acc.valor_prof_part_oab      += origem.valor_prof_part_oab || 0;
+      acc.atendimentos             += origem.atendimentos || 0;
+      alvo._por_turno[t] = acc;
+    };
+
     if (mergedMap.has(key)) {
       const ex = mergedMap.get(key);
       ex.valor_clinica            += item.valor_clinica;
@@ -589,8 +607,11 @@ async function cruzarComPrestadores(grupos, tipoContrato) {
       ex.datas                     = [...(ex.datas || []), ...(item.datas || [])];
       ex._turnos_planilha.add(item.turno_planilha);
       ex.turno_divergente          = ex.turno_divergente || item.turno_divergente;
+      somarTurno(ex, item);
     } else {
-      mergedMap.set(key, { ...item, _turnos_planilha: new Set([item.turno_planilha]) });
+      const novo = { ...item, _turnos_planilha: new Set([item.turno_planilha]) };
+      somarTurno(novo, item);
+      mergedMap.set(key, novo);
     }
   }
 
@@ -611,6 +632,30 @@ async function cruzarComPrestadores(grupos, tipoContrato) {
   }
 
   return { reconhecidos: [...mergedMap.values()], naoReconhecidos: [...naoRecMap.values()] };
+}
+
+/**
+ * Isola os turnos que o profissional atendeu mas que NÃO são o turno do contrato.
+ *
+ * Vínculo AMBOS ou INDEFINIDO cobre qualquer turno por definição — nada é extra.
+ * Para turno fixo (MANHÃ/TARDE), tudo que veio do turno oposto é cobertura e
+ * aparece separado na revisão, em vez de sumir dentro do total.
+ *
+ * @param {object} item          item já mesclado, com _por_turno acumulado
+ * @param {string} turnoContrato turno do vínculo, em maiúsculas
+ */
+function montarExtrasTurno(item, turnoContrato) {
+  if (!item._por_turno) return [];
+  if (!turnoContrato || turnoContrato === 'AMBOS' || turnoContrato === 'INDEFINIDO') return [];
+
+  return Object.values(item._por_turno)
+    .filter(t => t.turno && t.turno !== 'INDEFINIDO' && t.turno !== turnoContrato)
+    .map(t => ({
+      turno: t.turno,
+      atendimentos: t.atendimentos,
+      valor_clinica: Number(t.valor_clinica_total.toFixed(2)),
+      valor_profissional: Number(t.valor_profissional_atend.toFixed(2)),
+    }));
 }
 
 /**
@@ -731,6 +776,10 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
       // (caso real: Bruna Loretta). Admin decide na tela: "extra" ou "criar vínculo do turno".
       turno_divergente: !!item.turno_divergente,
       turnos_detectados: item._turnos_planilha instanceof Set ? [...item._turnos_planilha] : [item.turno_planilha],
+      // Fase 5 — EXTRA: atendimento em turno diferente do contratado. Para CLT o
+      // salário já cobre qualquer turno, então isso é sempre cobertura/extra e
+      // nunca um contrato paralelo. Vem separado para o admin decidir na revisão.
+      extras_turno: montarExtrasTurno(item, turnoVinculoItem),
     };
   }));
 
@@ -895,8 +944,17 @@ async function sincronizarStatusAtivos(tipoColaborador) {
     .where(qb => qb.where('anulado', false).orWhereNull('anulado'))
     .pluck('vinculo_id');
 
+  // Vínculo recém-criado tem carência: um upload que erra o matching (nome sujo,
+  // turno colapsado) deixaria de listá-lo e ele seria desligado no mesmo instante
+  // em que foi configurado — foi o que matou o vínculo de manhã do Silvino no
+  // fechamento de julho/2026. Sem a carência, reprocessar não conserta, porque o
+  // matcher só enxerga vínculo ativo.
+  const carencia = new Date();
+  carencia.setDate(carencia.getDate() - 30);
+
   await db('prestador_vinculos')
     .where('tipo_contrato', tipoColaborador)
+    .where('created_at', '<', carencia)
     .update({ ativo: false });
 
   if (vinculosDoUltimoPeriodo.length > 0) {

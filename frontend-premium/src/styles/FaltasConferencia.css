@@ -1,0 +1,180 @@
+/* Conferência de faltas prováveis (Fase 4).
+   Usa os tokens de tokens.css e as primitivas de ui.css. */
+
+.faltas-conf {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.faltas-conf-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.faltas-conf-head h3 {
+  margin: 0 0 2px 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.faltas-conf-head p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 62ch;
+}
+
+.faltas-conf-totais {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.faltas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.falta-grupo {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-sunken);
+}
+
+.falta-grupo-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-primary);
+  transition: background var(--transition-fast);
+}
+
+.falta-grupo-head:hover { background: var(--bg-input); }
+.falta-grupo-head > svg { flex-shrink: 0; color: var(--text-muted); }
+
+.falta-nome {
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 24ch;
+}
+
+.falta-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.falta-badges {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.falta-dias {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+.falta-bulk {
+  align-self: flex-start;
+  margin-bottom: var(--space-2);
+}
+
+.falta-dia {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  font-size: 0.78rem;
+  /* A borda esquerda vira o indicador da decisão. */
+  border-left: 3px solid transparent;
+  transition: border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.falta-dia.dia--confirmada { border-left-color: var(--badge-danger-fg); }
+.falta-dia.dia--descartada { border-left-color: var(--badge-success-fg); opacity: 0.65; }
+
+.falta-dia-data {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 10ch;
+}
+
+.falta-dia-motivo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.falta-dia-motivo.motivo--suspeita { color: var(--attention-fg); }
+.falta-dia-motivo.motivo--feriado { color: var(--badge-success-fg); }
+.falta-dia-motivo.motivo--troca { color: var(--accent-alt-fg); }
+.falta-dia-motivo.motivo--vigencia { color: var(--text-muted); }
+
+.falta-dia-nota {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.falta-dia-acoes {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.faltas-vazio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin-bottom: var(--space-4);
+}
+
+.faltas-vazio svg { color: var(--badge-success-fg); }
+
+@media (max-width: 768px) {
+  .falta-grupo-head { flex-wrap: wrap; }
+  .falta-meta { flex-basis: 100%; }
+  .falta-dia { flex-wrap: wrap; }
+  .falta-dia-acoes { width: 100%; }
+  .falta-dia-acoes .ui-btn-mini { flex: 1; justify-content: center; }
+}

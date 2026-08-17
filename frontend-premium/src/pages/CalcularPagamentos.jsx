@@ -9,6 +9,7 @@ import api from '../services/api';
 import { parseAnalisarAtendimentosResponse, parsePrestadoresList } from '../api/atendimentos';
 import MapeamentoNomes from '../components/MapeamentoNomes';
 import TabelaPreviewCalculo from '../components/TabelaPreviewCalculo';
+import FaltasConferencia from '../components/FaltasConferencia';
 import '../styles/CalcularPagamentos.css';
 
 const MESES = [
@@ -52,6 +53,11 @@ const CalcularPagamentos = () => {
 
   // Turnos divergentes detectados (vínculo de turno fixo recebeu atendimento do turno oposto)
   const [turnosDivergentes, setTurnosDivergentes] = useState([]);
+  // Faltas prováveis detectadas na planilha (Fase 3). `decisoesFaltas` guarda o
+  // que o admin marcou na conferência: chave "vinculoId|data" -> confirmada|descartada.
+  const [faltasDetectadas, setFaltasDetectadas] = useState([]);
+  const [faltasPorProfissional, setFaltasPorProfissional] = useState([]);
+  const [decisoesFaltas, setDecisoesFaltas] = useState({});
   const [turnosDivergentesResolvidos, setTurnosDivergentesResolvidos] = useState(new Set()); // chave vinculo_id|turno_vinculo
   const [criandoVinculoTurno, setCriandoVinculoTurno] = useState(null); // chave em criação (loading)
 
@@ -130,6 +136,9 @@ const CalcularPagamentos = () => {
 
       // Turnos divergentes detectados
       setTurnosDivergentes(data.turnos_divergentes || []);
+      setFaltasDetectadas(data.faltas_detectadas || []);
+      setFaltasPorProfissional(data.faltas_por_profissional || []);
+      setDecisoesFaltas({});
       setTurnosDivergentesResolvidos(new Set());
 
       // Preparar itens calculados para a etapa 3
@@ -181,6 +190,10 @@ const CalcularPagamentos = () => {
         '/atendimentos/confirmar',
         {
           calculados: itensCalculados,
+          faltas_detectadas: faltasDetectadas.map(f => ({
+            ...f,
+            status: decisoesFaltas[`${f.vinculo_id}|${f.data}`] || f.status,
+          })),
           mapeamentos_novos: mapeamentosNovos,
           tipo_contrato: tipoContrato,
           mes: parseInt(mes),
@@ -656,6 +669,12 @@ const CalcularPagamentos = () => {
               </div>
             </div>
           )}
+
+          {/* Conferência de faltas prováveis (Fase 4) */}
+          <FaltasConferencia
+            grupos={faltasPorProfissional}
+            onChange={setDecisoesFaltas}
+          />
 
           {/* Tabela de cálculos */}
           <div className="cp-card" style={{ padding: '1.25rem 1rem' }}>

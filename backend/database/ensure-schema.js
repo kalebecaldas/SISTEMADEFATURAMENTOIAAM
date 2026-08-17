@@ -320,6 +320,92 @@ async function ensureSchema() {
             console.log('✓ Tabela comprovantes_pagamento existe');
         }
 
+        // ========================================
+        // TABELA: turnos_config  (Fase 2)
+        // Horário de funcionamento por unidade + turno. É a base do detector de
+        // faltas: sem saber que dias/horas a unidade abre, não dá pra dizer que
+        // a ausência de atendimento num dia foi falta.
+        // Tem vigência porque horário muda com o tempo e recalcular uma
+        // competência antiga precisa usar o horário que valia na época.
+        // ========================================
+        if (!await db.schema.hasTable('turnos_config')) {
+            await db.schema.createTable('turnos_config', (table) => {
+                table.increments('id').primary();
+                table.string('unidade', 100).notNullable();
+                table.string('turno', 20).notNullable();          // MANHÃ | TARDE
+                table.string('hora_inicio', 5).notNullable();     // "06:30"
+                table.string('hora_fim', 5).notNullable();        // "12:00"
+                // Dias da semana em ISO: 1=segunda ... 7=domingo. Guardado como
+                // CSV ("1,2,3,4,5,6") para funcionar igual em SQLite e Postgres.
+                table.string('dias_semana', 20).notNullable().defaultTo('1,2,3,4,5');
+                table.date('vigencia_inicio');
+                table.date('vigencia_fim');
+                table.boolean('ativo').defaultTo(true);
+                table.timestamps(true, true);
+                table.index(['unidade', 'turno']);
+            });
+            console.log('✅ Tabela turnos_config criada');
+        } else {
+            console.log('✓ Tabela turnos_config existe');
+        }
+
+        // ========================================
+        // TABELA: feriados  (Fase 2)
+        // Dia sem expediente não pode virar falta. escopo: nacional | estadual |
+        // municipal | unidade (recesso próprio da clínica).
+        // ========================================
+        if (!await db.schema.hasTable('feriados')) {
+            await db.schema.createTable('feriados', (table) => {
+                table.increments('id').primary();
+                table.date('data').notNullable();
+                table.string('nome', 160).notNullable();
+                table.string('escopo', 20).defaultTo('nacional');
+                table.string('unidade', 100);   // null = vale para todas
+                table.boolean('facultativo').defaultTo(false);
+                table.boolean('ativo').defaultTo(true);
+                table.timestamps(true, true);
+                table.index(['data']);
+            });
+            console.log('✅ Tabela feriados criada');
+        } else {
+            console.log('✓ Tabela feriados existe');
+        }
+
+        // ========================================
+        // TABELA: faltas_detectadas  (Fase 3)
+        // Resultado do detector. NUNCA desconta sozinho: nasce como 'suspeita' e
+        // só entra no cálculo depois que o admin confirma. Guardamos o motivo
+        // pré-classificado para a conferência ser rápida.
+        // ========================================
+        if (!await db.schema.hasTable('faltas_detectadas')) {
+            await db.schema.createTable('faltas_detectadas', (table) => {
+                table.increments('id').primary();
+                table.integer('prestador_id').unsigned().notNullable();
+                table.integer('vinculo_id').unsigned();
+                table.integer('mes').notNullable();
+                table.integer('ano').notNullable();
+                table.date('data').notNullable();
+                table.string('turno', 20).notNullable();
+                table.string('unidade', 100);
+                // suspeita | confirmada | justificada | descartada
+                table.string('status', 20).defaultTo('suspeita');
+                // feriado | fora_da_vigencia | atendeu_outro_turno | sem_motivo
+                table.string('motivo_deteccao', 40);
+                table.string('justificativa', 200);
+                table.integer('confirmado_por').unsigned();
+                table.timestamp('confirmado_em');
+                table.timestamps(true, true);
+
+                table.foreign('prestador_id').references('id').inTable('usuarios').onDelete('CASCADE');
+                table.foreign('vinculo_id').references('id').inTable('prestador_vinculos').onDelete('CASCADE');
+                table.unique(['vinculo_id', 'data', 'turno']);
+                table.index(['mes', 'ano', 'status']);
+            });
+            console.log('✅ Tabela faltas_detectadas criada');
+        } else {
+            console.log('✓ Tabela faltas_detectadas existe');
+        }
+
         console.log('\n✅ Esquema do banco validado e atualizado!\n');
 
     } catch (error) {

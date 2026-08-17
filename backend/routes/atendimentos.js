@@ -14,6 +14,19 @@ const {
   sincronizarStatusAtivos,
 } = require('../services/calculoAtendimentos');
 const { cadastrarPrestadorRapido } = require('../services/prestadorCadastroRapido');
+const { detectarFaltas, agruparPorProfissional } = require('../services/detectorFaltas');
+
+/** Período de apuração de uma competência. CLT fecha 26→25; PJ é o mês cheio. */
+function periodoDaCompetencia(mes, ano, tipoContrato) {
+  if (tipoContrato === 'clt') {
+    const ini = new Date(Date.UTC(ano, mes - 2, 26));
+    return { inicio: ini, fim: new Date(Date.UTC(ano, mes - 1, 25)) };
+  }
+  return {
+    inicio: new Date(Date.UTC(ano, mes - 1, 1)),
+    fim: new Date(Date.UTC(ano, mes, 0)),
+  };
+}
 
 const router = express.Router();
 
@@ -159,6 +172,21 @@ router.post('/analisar', authenticateToken, requireAdmin, upload.single('planilh
         valor_clinica: c.valor_clinica,
       }));
 
+    // ── Faltas prováveis (Fase 3) ───────────────────────────────────────────
+    // Triagem, não apuração: nada é descontado aqui. Só reduz o que o admin
+    // precisa conferir. Falha no detector não pode derrubar a análise inteira.
+    let faltas_detectadas = [];
+    let faltas_por_profissional = [];
+    try {
+      if (resultado.mes && resultado.ano) {
+        const periodo = periodoDaCompetencia(resultado.mes, resultado.ano, resultado.tipo_contrato);
+        faltas_detectadas = await detectarFaltas(rows, resultado.calculados, periodo);
+        faltas_por_profissional = agruparPorProfissional(faltas_detectadas);
+      }
+    } catch (err) {
+      console.error('⚠️  Detector de faltas falhou (análise segue sem ele):', err.message);
+    }
+
     return res.json({
       sucesso: true,
       tipo_contrato: resultado.tipo_contrato,
@@ -169,6 +197,8 @@ router.post('/analisar', authenticateToken, requireAdmin, upload.single('planilh
       nao_reconhecidos: resultado.nao_reconhecidos,
       conflitos_clt,
       turnos_divergentes,
+      faltas_detectadas,
+      faltas_por_profissional,
       resumo: {
         reconhecidos: resultado.calculados.length,
         nao_reconhecidos: resultado.nao_reconhecidos.length,
@@ -211,7 +241,7 @@ router.post('/recalcular', authenticateToken, requireAdmin, async (req, res) => 
  */
 router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { calculados, mapeamentos_novos, tipo_contrato, mes, ano, substituir } = req.body;
+    const { calculados, mapeamentos_novos, tipo_contrato, mes, ano, substituir, faltas_detectadas } = req.body;
 
     if (!calculados || !mes || !ano || !tipo_contrato) {
       return res.status(400).json({ error: 'calculados, mes, ano e tipo_contrato são obrigatórios' });
@@ -344,6 +374,37 @@ router.post('/confirmar', authenticateToken, requireAdmin, async (req, res) => {
       } catch (err) {
         erros.push(`Erro ao inserir ${item.nome}: ${err.message}`);
       }
+    }
+
+    // ── Persistir as faltas detectadas (Fase 3) ──────────────────────────────
+    // Gravadas como SUSPEITA (ou descartada, quando é feriado). Nenhuma entra no
+    // cálculo até o admin confirmar na tela de conferência — por isso o
+    // dados_mensais.faltas continua 0 aqui.
+    if (Array.isArray(faltas_detectadas) && faltas_detectadas.length) {
+      let gravadas = 0;
+      for (const f of faltas_detectadas) {
+        if (!f.vinculo_id || !f.data || !f.turno) continue;
+        try {
+          await db('faltas_detectadas')
+            .insert({
+              prestador_id: f.prestador_id,
+              vinculo_id: f.vinculo_id,
+              mes: mesInt,
+              ano: anoInt,
+              data: f.data,
+              turno: f.turno,
+              unidade: f.unidade || null,
+              status: f.status || 'suspeita',
+              motivo_deteccao: f.motivo_deteccao || 'sem_motivo',
+            })
+            .onConflict(['vinculo_id', 'data', 'turno'])
+            .merge({ status: f.status || 'suspeita', motivo_deteccao: f.motivo_deteccao || 'sem_motivo' });
+          gravadas++;
+        } catch (err) {
+          erros.push(`Falta ${f.nome} ${f.data}: ${err.message}`);
+        }
+      }
+      console.log(`📋 ${gravadas} falta(s) provável(is) registrada(s) para conferência`);
     }
 
     // Persistir novos mapeamentos de nomes
