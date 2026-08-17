@@ -7,6 +7,7 @@ const express = require('express');
 const { db } = require('../database/init');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { feriadosDoPeriodo } = require('../utils/feriados');
+const { recalcularItem } = require('../services/calculoAtendimentos');
 
 const router = express.Router();
 
@@ -281,18 +282,70 @@ router.put('/faltas/status', authenticateToken, requireAdmin, async (req, res) =
       confirmado_em: db.fn.now(),
     });
 
-    // dados_mensais.faltas passa a refletir só o que foi CONFIRMADO.
+    // dados_mensais.faltas passa a refletir só o que foi CONFIRMADO — e o valor é
+    // recalculado junto. Atualizar só a contagem deixaria a falta confirmada sem
+    // efeito nenhum no pagamento, que é justamente o ponto da conferência.
     const afetados = await db('faltas_detectadas').whereIn('id', ids).distinct('vinculo_id', 'mes', 'ano');
+    const recalculados = [];
+
     for (const a of afetados) {
       const { total } = await db('faltas_detectadas')
         .where({ vinculo_id: a.vinculo_id, mes: a.mes, ano: a.ano, status: 'confirmada' })
         .count('* as total').first();
-      await db('dados_mensais')
+      const faltas = parseInt(total, 10) || 0;
+
+      const linhas = await db('dados_mensais')
         .where({ vinculo_id: a.vinculo_id, mes: a.mes, ano: a.ano })
-        .update({ faltas: parseInt(total, 10) || 0 });
+        .select('*');
+
+      for (const dm of linhas) {
+        // Valor editado à mão pelo admin tem precedência: não sobrescrevemos.
+        if (dm.foi_editado) {
+          await db('dados_mensais').where('id', dm.id).update({ faltas });
+          continue;
+        }
+
+        const vinculo = await db('prestador_vinculos').where('id', a.vinculo_id).first();
+
+        // recalcularItem, e não calcularFinanceiroUploadLinha: só ele leva o
+        // valor_prof_part_oab, que é somado por fora do percentual. A função da
+        // planilha mensal assume Part/OAB = 0 e mudaria o valor da Thalita de
+        // R$ 5.405,85 para R$ 4.456,73 só por confirmar uma falta.
+        // A especialidade do vínculo já é a chave da comissão desde a correção
+        // de São José, então serve direto como especialidade_comissao.
+        const resultado = await recalcularItem({
+          tipo_contrato: dm.tipo_colaborador,
+          especialidade: dm.especialidade,
+          especialidade_comissao: dm.especialidade,
+          unidade: dm.unidade,
+          valor_clinica: dm.valor_clinica_meta ?? dm.valor_clinica,
+          valor_clinica_total: dm.valor_clinica,
+          valor_profissional_atend: dm.valor_profissional,
+          valor_prof_part_oab: dm.valor_prof_part_oab || 0,
+          fixo_efetivo: vinculo ? parseFloat(vinculo.valor_fixo_base) || 0 : 0,
+          desconto_por_falta: vinculo ? vinculo.desconto_por_falta : 20,
+          meta_mensal: dm.meta_mensal,
+          faltas,
+          extras: dm.extras || 0,
+        });
+
+        const patch = { faltas };
+        if (resultado.valor_bruto != null && !Number.isNaN(resultado.valor_bruto)) {
+          patch.valor_bruto = resultado.valor_bruto;
+          patch.valor_liquido = resultado.valor_bruto;
+          patch.valor_fixo = resultado.fixo_ajustado || 0;
+          recalculados.push({
+            vinculo_id: a.vinculo_id,
+            de: parseFloat(dm.valor_bruto) || 0,
+            para: resultado.valor_bruto,
+            faltas,
+          });
+        }
+        await db('dados_mensais').where('id', dm.id).update(patch);
+      }
     }
 
-    res.json({ sucesso: true, atualizados: n });
+    res.json({ sucesso: true, atualizados: n, recalculados });
   } catch (e) {
     console.error('❌ Erro ao atualizar faltas:', e);
     res.status(500).json({ error: 'Erro ao atualizar faltas' });

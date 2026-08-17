@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, CheckSquare, DollarSign, FileText, Wallet, CalendarRange, Users } from 'lucide-react';
+import { Upload, CheckSquare, DollarSign, FileText, Wallet, CalendarRange, Users, CalendarX } from 'lucide-react';
 import UploadPage from './Upload';
 import InvoiceDashboard from './InvoiceDashboard';
 import PaymentNotifications from './PaymentNotifications';
 import Invoices from './Invoices';
+import ConferenciaFaltas from './ConferenciaFaltas';
 import api from '../services/api';
 import '../styles/TabbedPage.css';
 
@@ -15,6 +16,7 @@ const ABAS = [
     { id: 'control', label: 'Controle de Envios', icon: CheckSquare },
     { id: 'payments', label: 'Pagamentos', icon: DollarSign },
     { id: 'invoices', label: 'Notas Fiscais', icon: FileText },
+    { id: 'faltas', label: 'Faltas', icon: CalendarX },
 ];
 
 const formatCurrency = (v) =>
@@ -117,6 +119,7 @@ const FinanceHub = () => {
                 {activeTab === 'control' && <InvoiceDashboard />}
                 {activeTab === 'payments' && <PaymentNotifications />}
                 {activeTab === 'invoices' && <Invoices />}
+                {activeTab === 'faltas' && <ConferenciaFaltas />}
             </div>
         </div>
     );
