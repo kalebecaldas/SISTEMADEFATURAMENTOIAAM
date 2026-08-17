@@ -160,6 +160,94 @@ router.post('/feriados/gerar/:ano', authenticateToken, requireAdmin, async (req,
   }
 });
 
+// ─── Escala semanal por profissional ───────────────────────────────────────
+// A escala vive no VÍNCULO, não na pessoa: a Bruna Loretta atende todos os dias
+// de manhã e só seg/qua/sex à tarde.
+router.get('/escalas/lista', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const vinculos = await db('prestador_vinculos as pv')
+      .join('usuarios as u', 'u.id', 'pv.prestador_id')
+      .where('pv.ativo', true)
+      .whereNull('pv.data_fim')
+      .select('pv.id', 'pv.prestador_id', 'pv.turno', 'pv.unidade', 'pv.especialidade',
+              'pv.dias_semana', 'pv.tipo_contrato', 'u.nome')
+      .orderBy(['u.nome', 'pv.turno']);
+
+    const ausencias = await db('ausencias_programadas as a')
+      .join('usuarios as u', 'u.id', 'a.prestador_id')
+      .select('a.*', 'u.nome')
+      .orderBy('a.data_inicio', 'desc');
+
+    res.json({ vinculos, ausencias });
+  } catch (e) {
+    console.error('❌ Erro ao listar escalas:', e);
+    res.status(500).json({ error: 'Erro ao listar escalas' });
+  }
+});
+
+router.put('/escalas/:vinculoId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const dias = Array.isArray(req.body.dias_semana)
+      ? req.body.dias_semana
+      : String(req.body.dias_semana ?? '').split(',');
+    const limpos = [...new Set(dias.map(d => parseInt(d, 10)).filter(d => DIAS_VALIDOS.has(d)))].sort();
+
+    // Vazio ou a semana inteira = null: "todos os dias em que a unidade abre".
+    // Guardar a semana cheia criaria uma escala que precisa ser mantida em sincronia
+    // com o horário da unidade sem necessidade.
+    const valor = (!limpos.length || limpos.length >= 7) ? null : limpos.join(',');
+
+    const n = await db('prestador_vinculos').where('id', req.params.vinculoId)
+      .update({ dias_semana: valor });
+    if (!n) return res.status(404).json({ error: 'Vínculo não encontrado' });
+    res.json({ sucesso: true, dias_semana: valor });
+  } catch (e) {
+    console.error('❌ Erro ao salvar escala:', e);
+    res.status(500).json({ error: 'Erro ao salvar escala' });
+  }
+});
+
+// ─── Ausências programadas (férias, atestado, licença, folga) ──────────────
+router.post('/ausencias', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { prestador_id, tipo, data_inicio, data_fim } = req.body;
+    const TIPOS = ['ferias', 'atestado', 'licenca', 'folga'];
+    if (!prestador_id || !data_inicio || !data_fim) {
+      return res.status(400).json({ error: 'prestador_id, data_inicio e data_fim são obrigatórios' });
+    }
+    if (!TIPOS.includes(tipo)) {
+      return res.status(400).json({ error: `tipo deve ser um de: ${TIPOS.join(', ')}` });
+    }
+    if (data_fim < data_inicio) {
+      return res.status(400).json({ error: 'data_fim precisa ser maior ou igual a data_inicio' });
+    }
+
+    const [novo] = await db('ausencias_programadas').insert({
+      prestador_id,
+      vinculo_id: req.body.vinculo_id || null,  // null = vale para todos os turnos
+      tipo,
+      data_inicio,
+      data_fim,
+      observacao: req.body.observacao || null,
+    }).returning('id');
+    res.status(201).json({ sucesso: true, id: typeof novo === 'object' ? novo.id : novo });
+  } catch (e) {
+    console.error('❌ Erro ao criar ausência:', e);
+    res.status(500).json({ error: 'Erro ao criar ausência' });
+  }
+});
+
+router.delete('/ausencias/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const n = await db('ausencias_programadas').where('id', req.params.id).del();
+    if (!n) return res.status(404).json({ error: 'Ausência não encontrada' });
+    res.json({ sucesso: true });
+  } catch (e) {
+    console.error('❌ Erro ao remover ausência:', e);
+    res.status(500).json({ error: 'Erro ao remover ausência' });
+  }
+});
+
 // ─── Faltas ────────────────────────────────────────────────────────────────
 router.get('/faltas/:mes/:ano', authenticateToken, requireAdmin, async (req, res) => {
   try {

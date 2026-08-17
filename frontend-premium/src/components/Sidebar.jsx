@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Upload, FileText, Users, Settings, LogOut, DollarSign, UserCog, Menu, X, Sun, Moon, Calculator, Stethoscope } from 'lucide-react';
+import { LayoutDashboard, Upload, FileText, Users, Settings, LogOut, DollarSign, UserCog, Menu, X, Sun, Moon, Calculator, Stethoscope, CalendarDays } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import '../styles/Sidebar.css';
 
@@ -18,6 +18,7 @@ const Sidebar = () => {
         { icon: Calculator, label: 'Calcular Pagamentos', path: '/calcular-pagamentos' },
         { icon: LayoutDashboard, label: 'Relatórios', path: '/relatorios' },
         { icon: Stethoscope, label: 'Especialidades', path: '/especialidades' },
+        { icon: CalendarDays, label: 'Escalas e Turnos', path: '/escalas' },
         { icon: UserCog, label: 'Usuários', path: '/usuarios' },
         { icon: Settings, label: 'Configurações', path: '/settings' },
     ];

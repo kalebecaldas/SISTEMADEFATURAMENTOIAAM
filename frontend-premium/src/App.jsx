@@ -23,6 +23,7 @@ import Users from './pages/Users';
 import MyContracts from './pages/MyContracts';
 import CalcularPagamentos from './pages/CalcularPagamentos';
 import EspecialidadesAdmin from './pages/EspecialidadesAdmin';
+import EscalasTurnos from './pages/EscalasTurnos';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -107,6 +108,11 @@ function App() {
           <Route path="especialidades" element={
             <ProtectedRoute allowedRoles={['admin', 'master']}>
               <EspecialidadesAdmin />
+            </ProtectedRoute>
+          } />
+          <Route path="escalas" element={
+            <ProtectedRoute allowedRoles={['admin', 'master']}>
+              <EscalasTurnos />
             </ProtectedRoute>
           } />
           <Route path="settings" element={<Settings />} />

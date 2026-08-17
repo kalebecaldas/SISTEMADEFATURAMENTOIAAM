@@ -1,0 +1,166 @@
+/* Escalas e Turnos — usa os tokens de tokens.css e as primitivas de ui.css. */
+
+.escalas-page {
+  padding: 2rem 3.5rem;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.escalas-page .tabs-container { padding: 6px; margin-bottom: var(--space-5); }
+
+.escala-card {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
+  padding: var(--space-5);
+}
+
+.escala-ajuda {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 var(--space-4) 0;
+  max-width: 78ch;
+}
+
+/* ─── Escala por profissional ──────────────────────────────────────────── */
+.escala-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.escala-linha {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border-light);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  transition: border-color var(--transition-fast);
+}
+
+/* Linha com edição não salva fica marcada, para nada se perder sem querer. */
+.escala-linha.alterada { border-left-color: var(--badge-warn-fg); }
+
+.escala-info { flex: 1; min-width: 0; }
+
+.escala-nome {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.escala-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ─── Seletor de dias ──────────────────────────────────────────────────── */
+.seletor-dias {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.dia-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.dia-btn:hover:not(:disabled) { border-color: var(--primary); }
+
+.dia-btn.on {
+  background: var(--primary);
+  border-color: transparent;
+  color: #fff;
+}
+
+.dia-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Semana toda marcada = herda o horário da unidade; sinaliza sem gritar. */
+.seletor-dias.herdado .dia-btn.on {
+  background: var(--badge-info-bg);
+  color: var(--badge-info-fg);
+}
+
+/* ─── Tabelas ──────────────────────────────────────────────────────────── */
+.escala-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.escala-tabela th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-light);
+  font-weight: 600;
+}
+
+.escala-tabela td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+}
+
+.escala-tabela tr:last-child td { border-bottom: none; }
+.escala-tabela tbody tr:hover td { background: var(--surface-sunken); }
+.escala-tabela td.num { font-variant-numeric: tabular-nums; }
+.escala-tabela td.obs { color: var(--text-muted); font-size: 0.74rem; max-width: 40ch; }
+.escala-tabela td.vazio { text-align: center; color: var(--text-muted); padding: var(--space-6); }
+
+/* ─── Formulário de ausência ───────────────────────────────────────────── */
+.ausencia-form {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr 1.4fr auto;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.feriados-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.feriados-acoes {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+@media (max-width: 1024px) {
+  .ausencia-form { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 768px) {
+  .escalas-page { padding: 1rem; }
+  .escala-linha { flex-wrap: wrap; }
+  .escala-info { flex-basis: 100%; }
+  .seletor-dias { flex: 1; }
+  .ausencia-form { grid-template-columns: 1fr; }
+  .escala-tabela { display: block; overflow-x: auto; }
+}
