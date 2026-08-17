@@ -60,3 +60,49 @@ test('desconto por falta proporcional ao fixo (fixo/30 por falta)', () => {
   const fixoEsperado = Math.max(0, 300 - 3 * (300 / 30));
   assert.equal(r.total, 1000 + fixoEsperado + 50);
 });
+
+test('turno extra acrescenta uma diária no fixo, espelhando a falta', () => {
+  const base = {
+    comissao: null,
+    valor_clinica: 10000,
+    valor_clinica_total: 10000,
+    valor_profissional_atend: 1200,
+    valor_fixo_base: 600,
+    meta_mensal: null,
+  };
+
+  // Fixo de 600 => diária de 20.
+  const limpo = calcularValorPJ({ ...base, faltas: 0, dias_extras: 0 });
+  assert.strictEqual(limpo.fixo_ajustado, 600);
+
+  const comFalta = calcularValorPJ({ ...base, faltas: 2, dias_extras: 0 });
+  assert.strictEqual(comFalta.fixo_ajustado, 560); // 600 - 2x20
+
+  const comExtra = calcularValorPJ({ ...base, faltas: 0, dias_extras: 3 });
+  assert.strictEqual(comExtra.fixo_ajustado, 660); // 600 + 3x20
+  assert.strictEqual(comExtra.adicional_turno_extra, 60);
+
+  // Falta e extra no mesmo mês se compensam na mesma diária.
+  const ambos = calcularValorPJ({ ...base, faltas: 2, dias_extras: 2 });
+  assert.strictEqual(ambos.fixo_ajustado, 600);
+});
+
+test('sem fixo não há adicional de turno extra', () => {
+  // A diária de 20 sai do fixo de 600. Quem não tem fixo não tem diária, e o
+  // fallback de desconto_por_falta não pode virar pagamento: em julho/2026 isso
+  // criou R$ 500 do nada para a Layane e a Laysa.
+  const r = calcularValorPJ({
+    comissao: null,
+    valor_clinica: 5000,
+    valor_clinica_total: 5000,
+    valor_profissional_atend: 800,
+    valor_fixo_base: 0,
+    desconto_por_falta: 20,
+    meta_mensal: null,
+    faltas: 0,
+    dias_extras: 13,
+  });
+  assert.strictEqual(r.fixo_ajustado, 0);
+  assert.strictEqual(r.adicional_turno_extra, 0);
+  assert.strictEqual(r.total, 800);
+});

@@ -600,12 +600,16 @@ async function cruzarComPrestadores(grupos, tipoContrato) {
       const acc = alvo._por_turno[t] || {
         turno: t, valor_clinica: 0, valor_clinica_total: 0,
         valor_profissional_atend: 0, valor_prof_part_oab: 0, atendimentos: 0,
+        // Dias distintos: o adicional de turno extra é por DIA comparecido,
+        // não por atendimento.
+        dias: new Set(),
       };
       acc.valor_clinica            += origem.valor_clinica || 0;
       acc.valor_clinica_total      += origem.valor_clinica_total || 0;
       acc.valor_profissional_atend += origem.valor_profissional_atend || 0;
       acc.valor_prof_part_oab      += origem.valor_prof_part_oab || 0;
       acc.atendimentos             += origem.atendimentos || 0;
+      (origem.datas || []).forEach(d => acc.dias.add(String(d).trim()));
       alvo._por_turno[t] = acc;
     };
 
@@ -664,6 +668,7 @@ function montarExtrasTurno(item, turnoContrato) {
     .filter(t => t.turno && t.turno !== 'INDEFINIDO' && t.turno !== turnoContrato)
     .map(t => ({
       turno: t.turno,
+      dias: t.dias ? t.dias.size : 0,
       atendimentos: t.atendimentos,
       valor_clinica: Number(t.valor_clinica_total.toFixed(2)),
       valor_profissional: Number(t.valor_profissional_atend.toFixed(2)),
@@ -735,6 +740,12 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
     const porDia = item.modelo_fixo === 'por_dia';
     const fixoEfetivo = porDia ? fixoBase * diasTrabalhados : fixoBase * numTurnos;
 
+    // Turno fora do contrato rende adicional no fixo, na mesma diária que a falta
+    // desconta (fixo/30). É o espelho da falta: faltou tira 20, cobriu turno extra
+    // põe 20. Só conta para vínculo de turno fixo — AMBOS/INDEFINIDO já cobre tudo.
+    const extrasDoTurno = montarExtrasTurno(item, turnoVinculoItem);
+    const diasExtras = extrasDoTurno.reduce((soma, e) => soma + (e.dias || 0), 0);
+
     let resultado;
     if (tipoIndividual === 'clt') {
       // CLT: usa valor_clinica_total (faturamento completo, sem exclusão Part/OAB)
@@ -759,6 +770,7 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
         valor_prof_part_oab: item.valor_prof_part_oab || 0,
         valor_fixo_base: fixoEfetivo,
         desconto_por_falta: item.desconto_por_falta,
+        dias_extras: porDia ? 0 : diasExtras,
         meta_mensal: item.meta_mensal,
         faltas: 0,
         extras: 0,
@@ -801,7 +813,8 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
       // Fase 5 — EXTRA: atendimento em turno diferente do contratado. Para CLT o
       // salário já cobre qualquer turno, então isso é sempre cobertura/extra e
       // nunca um contrato paralelo. Vem separado para o admin decidir na revisão.
-      extras_turno: montarExtrasTurno(item, turnoVinculoItem),
+      extras_turno: extrasDoTurno,
+      dias_extras: porDia ? 0 : diasExtras,
     };
   }));
 

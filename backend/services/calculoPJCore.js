@@ -31,6 +31,7 @@ function calcularValorPJ({
   meta_mensal,
   faltas,
   extras,
+  dias_extras,
 }) {
   const faltasNum = parseInt(faltas) || 0;
   const extrasNum = parseFloat(extras) || 0;
@@ -52,8 +53,15 @@ function calcularValorPJ({
     ? (metaBatida ? pctComMeta : pctSemMeta)
     : null;
 
+  // A diária do fixo vale para os dois lados: falta desconta uma, turno extra
+  // acrescenta uma. Com fixo de 600 isso dá os R$ 20 por dia.
   const descontoPorFalta = fixoBase > 0 ? fixoBase / 30 : (parseFloat(desconto_por_falta) || 20);
-  let fixoAjustado = Math.max(0, fixoBase - (faltasNum * descontoPorFalta));
+  // Adicional de turno extra só existe se HÁ fixo: a diária de 20 sai do próprio
+  // fixo de 600. Sem fixo, o fallback de 20 criaria pagamento do nada — deu +R$ 500
+  // em julho/2026 (Layane e Laysa, ambas com fixo zerado).
+  const diariaExtra = fixoBase > 0 ? descontoPorFalta : 0;
+  const diasExtrasNum = parseInt(dias_extras, 10) || 0;
+  let fixoAjustado = Math.max(0, fixoBase - (faltasNum * descontoPorFalta) + (diasExtrasNum * diariaExtra));
   let total;
 
   if (metaBatida && pctComMeta > 0) {
@@ -67,6 +75,8 @@ function calcularValorPJ({
     total,
     meta_batida: metaBatida,
     fixo_ajustado: fixoAjustado,
+    dias_extras: diasExtrasNum,
+    adicional_turno_extra: diasExtrasNum * diariaExtra,
     pct_aplicado: pctAplicado,
     tipo_calculo: metaBatida && pctComMeta > 0
       ? 'valor_pct_com_meta'
