@@ -533,98 +533,62 @@ const CalcularPagamentos = () => {
 
           {/* ── Banner de conflitos CLT ── */}
           {conflitosVisiveis.length > 0 && (
-            <div style={{
-              borderRadius: 12, border: '1px solid rgba(251,146,60,0.4)',
-              background: 'rgba(251,146,60,0.07)', padding: '1rem 1.25rem',
-              marginBottom: '1rem',
-            }}>
-              {/* Cabeçalho do banner */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.85rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <ShieldAlert size={18} style={{ color: '#fb923c', flexShrink: 0 }} />
+            <div className="ui-banner ui-banner--attention">
+              <div className="ui-banner-head">
+                <div className="ui-banner-heading">
+                  <ShieldAlert size={18} />
                   <div>
-                    <span style={{ fontWeight: 700, color: '#fb923c', fontSize: '0.9rem' }}>
+                    <span className="ui-banner-title">
                       {conflitosVisiveis.length} profissional(is) com atendimento CLT
                     </span>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 1 }}>
+                    <p className="ui-banner-desc">
                       Estes profissionais também possuem vínculo ou registro CLT neste período.
                       Verifique antes de confirmar para evitar duplicidade.
-                    </div>
+                    </p>
                   </div>
                 </div>
-                {/* Ações em massa */}
-                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                <div className="ui-banner-actions">
                   <button
+                    className="ui-btn-mini ui-btn-mini--outline"
                     onClick={contemplarTodosConflitos}
                     title="Manter todos na lista PJ (já contemplado no CLT)"
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '0.35rem',
-                      padding: '0.35rem 0.85rem', borderRadius: 7, border: '1px solid rgba(251,146,60,0.5)',
-                      background: 'transparent', color: '#fb923c', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600,
-                    }}
                   >
                     <CheckSquare size={13} /> Todos já contemplados
                   </button>
                   <button
+                    className="ui-btn-mini ui-btn-mini--danger"
                     onClick={removerTodosConflitos}
                     title="Remover todos da lista PJ"
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '0.35rem',
-                      padding: '0.35rem 0.85rem', borderRadius: 7, border: 'none',
-                      background: 'rgba(239,68,68,0.15)', color: '#f87171', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600,
-                    }}
                   >
                     <Trash2 size={13} /> Remover todos da lista PJ
                   </button>
                 </div>
               </div>
 
-              {/* Linhas individuais */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <div className="ui-banner-rows">
                 {conflitosVisiveis.map(c => (
-                  <div key={c.prestador_id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '0.5rem 0.75rem', borderRadius: 8,
-                    background: 'rgba(0,0,0,0.15)', gap: '0.75rem', flexWrap: 'wrap',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-                      <span style={{ fontWeight: 600, fontSize: '0.83rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {c.nome}
-                      </span>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  <div key={c.prestador_id} className="ui-banner-row">
+                    <div className="ui-banner-row-info">
+                      <span className="ui-banner-row-name">{c.nome}</span>
+                      <span className="ui-banner-row-meta">
                         {c.especialidade} · {c.unidade} · {c.turno}
                       </span>
-                      <span style={{
-                        fontSize: '0.62rem', padding: '1px 6px', borderRadius: 20,
-                        background: c.motivo === 'dados_mensais_clt' ? 'rgba(34,197,94,0.15)' : 'rgba(251,146,60,0.2)',
-                        color: c.motivo === 'dados_mensais_clt' ? '#22c55e' : '#fb923c',
-                        fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
-                      }}>
+                      <span className={`ui-chip ${c.motivo === 'dados_mensais_clt' ? 'ui-chip--success' : 'ui-chip--attention'}`}>
                         {c.motivo === 'dados_mensais_clt' ? 'CLT já salvo' : 'Vínculo CLT'}
                       </span>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                    <div className="ui-banner-actions">
                       <button
+                        className="ui-btn-mini ui-btn-mini--outline"
                         onClick={() => contemplarConflito(c.prestador_id)}
                         title="Manter na lista PJ (já contemplado)"
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '0.3rem',
-                          padding: '0.28rem 0.7rem', borderRadius: 6,
-                          border: '1px solid rgba(251,146,60,0.4)', background: 'transparent',
-                          color: '#fb923c', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600,
-                        }}
                       >
                         <CheckSquare size={11} /> Já contemplado
                       </button>
                       <button
+                        className="ui-btn-mini ui-btn-mini--danger"
                         onClick={() => removerConflito(c.prestador_id)}
                         title="Remover da lista PJ"
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '0.3rem',
-                          padding: '0.28rem 0.7rem', borderRadius: 6,
-                          border: 'none', background: 'rgba(239,68,68,0.15)',
-                          color: '#f87171', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600,
-                        }}
                       >
                         <Trash2 size={11} /> Remover da lista
                       </button>
@@ -637,71 +601,52 @@ const CalcularPagamentos = () => {
 
           {/* ── Banner de turnos divergentes ── */}
           {turnosDivergentesVisiveis.length > 0 && (
-            <div style={{
-              borderRadius: 12, border: '1px solid rgba(129,140,248,0.4)',
-              background: 'rgba(129,140,248,0.07)', padding: '1rem 1.25rem',
-              marginBottom: '1rem',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.85rem' }}>
-                <ShieldAlert size={18} style={{ color: '#818cf8', flexShrink: 0 }} />
-                <div>
-                  <span style={{ fontWeight: 700, color: '#818cf8', fontSize: '0.9rem' }}>
-                    {turnosDivergentesVisiveis.length} possível(is) turno extra
-                  </span>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 1 }}>
-                    Vínculo é de um turno só, mas detectamos atendimento também no outro turno.
-                    Pode ser cobertura ocasional (extra) ou um turno novo que falta cadastrar.
+            <div className="ui-banner ui-banner--accent">
+              <div className="ui-banner-head">
+                <div className="ui-banner-heading">
+                  <ShieldAlert size={18} />
+                  <div>
+                    <span className="ui-banner-title">
+                      {turnosDivergentesVisiveis.length} possível(is) turno extra
+                    </span>
+                    <p className="ui-banner-desc">
+                      Vínculo é de um turno só, mas detectamos atendimento também no outro turno.
+                      Pode ser cobertura ocasional (extra) ou um turno novo que falta cadastrar.
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <div className="ui-banner-rows">
                 {turnosDivergentesVisiveis.map(t => {
                   const chave = chaveTurnoDivergente(t);
                   const turnoNovo = (t.turnos_detectados || []).find(turno => turno !== t.turno_vinculo);
                   const criando = criandoVinculoTurno === chave;
                   return (
-                    <div key={chave} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '0.5rem 0.75rem', borderRadius: 8,
-                      background: 'rgba(0,0,0,0.15)', gap: '0.75rem', flexWrap: 'wrap',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-                        <span style={{ fontWeight: 600, fontSize: '0.83rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {t.nome}
-                        </span>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    <div key={chave} className="ui-banner-row">
+                      <div className="ui-banner-row-info">
+                        <span className="ui-banner-row-name">{t.nome}</span>
+                        <span className="ui-banner-row-meta">
                           {t.especialidade} · {t.unidade} · vínculo é {t.turno_vinculo}, atendeu também {turnoNovo}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                      <div className="ui-banner-actions">
                         <button
+                          className="ui-btn-mini ui-btn-mini--outline"
                           onClick={() => marcarComoExtra(t)}
                           disabled={criando}
                           title="Cobertura ocasional — manter como está, mesclado no vínculo existente"
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '0.3rem',
-                            padding: '0.28rem 0.7rem', borderRadius: 6,
-                            border: '1px solid rgba(129,140,248,0.4)', background: 'transparent',
-                            color: '#818cf8', cursor: criando ? 'not-allowed' : 'pointer', fontSize: '0.7rem', fontWeight: 600,
-                            opacity: criando ? 0.5 : 1,
-                          }}
                         >
                           <CheckSquare size={11} /> É extra
                         </button>
                         <button
+                          className="ui-btn-mini ui-btn-mini--success"
                           onClick={() => criarVinculoTurno(t)}
                           disabled={criando}
                           title={`Criar vínculo de ${turnoNovo} pra esse profissional`}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '0.3rem',
-                            padding: '0.28rem 0.7rem', borderRadius: 6,
-                            border: 'none', background: 'rgba(34,197,94,0.15)',
-                            color: '#22c55e', cursor: criando ? 'not-allowed' : 'pointer', fontSize: '0.7rem', fontWeight: 600,
-                          }}
                         >
                           {criando
-                            ? <><RefreshCw size={11} style={{ animation: 'spin 0.8s linear infinite' }} /> Criando...</>
+                            ? <><RefreshCw size={11} className="cp-spin" /> Criando...</>
                             : <>+ Criar vínculo {turnoNovo}</>}
                         </button>
                       </div>

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Edit2, Save, X, Plus } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
 import '../styles/ContractManagement.css';
 
 const ContractManagement = () => {
+    const toast = useToast();
     const [contratos, setContratos] = useState([]);
     const [loading, setLoading] = useState(false);
     const [editando, setEditando] = useState(null);
@@ -38,9 +40,9 @@ const ContractManagement = () => {
             setEditando(null);
             setMetaEdit('');
             fetchContratos();
-            alert('Meta atualizada com sucesso!');
+            toast.success('Meta atualizada');
         } catch (error) {
-            alert('Erro ao atualizar meta: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao atualizar meta', { detail: error.response?.data?.error });
         }
     };
 

@@ -90,6 +90,20 @@ async function ensureSchema() {
                 });
                 console.log('  ✅ Coluna tipo_contrato adicionada em prestador_vinculos');
             }
+
+            // Vigência do contrato. data_fim preenchida = encerrado (ex: migrou de PJ
+            // para CLT) e o vínculo nunca mais casa com planilha nem é reativado.
+            const colunasVigencia = {
+                'data_inicio': (table) => table.date('data_inicio'),
+                'data_fim': (table) => table.date('data_fim'),
+                'motivo_encerramento': (table) => table.string('motivo_encerramento', 200),
+            };
+            for (const [coluna, fn] of Object.entries(colunasVigencia)) {
+                if (!await db.schema.hasColumn('prestador_vinculos', coluna)) {
+                    await db.schema.table('prestador_vinculos', fn);
+                    console.log(`  ✅ Coluna ${coluna} adicionada em prestador_vinculos`);
+                }
+            }
         }
 
         // ========================================
@@ -163,7 +177,12 @@ async function ensureSchema() {
                 'turno': 'string',
                 'turno_manha': 'boolean',
                 'turno_tarde': 'boolean',
-                'observacoes_edicao': 'text'
+                'observacoes_edicao': 'text',
+                // Anulação lógica: registro fica no histórico para auditoria mas sai
+                // de todos os totais (usado na duplicidade CLT/PJ de 2026).
+                'anulado': 'boolean',
+                'anulado_motivo': 'string',
+                'anulado_em': 'timestamp'
             };
 
             for (const [coluna, tipo] of Object.entries(colunasNecessarias)) {
@@ -178,6 +197,8 @@ async function ensureSchema() {
                             table.boolean(coluna).defaultTo(false);
                         } else if (tipo === 'text') {
                             table.text(coluna);
+                        } else if (tipo === 'timestamp') {
+                            table.timestamp(coluna);
                         } else {
                             table.string(coluna);
                         }

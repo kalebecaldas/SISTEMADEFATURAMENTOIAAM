@@ -112,9 +112,12 @@ router.get('/verificar/:mes/:ano', authenticateToken, requireAdmin, async (req, 
     const mesInt = parseInt(mes);
     const anoInt = parseInt(ano);
 
-    // Buscar dados de PRESTADORES
+    // Buscar dados de PRESTADORES (registros anulados não contam)
+    const naoAnulado = q => q.where('anulado', false).orWhereNull('anulado');
+
     const dadosPrestadores = await db('dados_mensais')
       .where({ mes: mesInt, ano: anoInt, tipo_colaborador: 'prestador' })
+      .where(naoAnulado)
       .count('* as total')
       .countDistinct('prestador_id as prestadores')
       .sum('valor_liquido as valor_total')
@@ -123,6 +126,7 @@ router.get('/verificar/:mes/:ano', authenticateToken, requireAdmin, async (req, 
     // Buscar dados de CLT
     const dadosCLT = await db('dados_mensais')
       .where({ mes: mesInt, ano: anoInt, tipo_colaborador: 'clt' })
+      .where(naoAnulado)
       .count('* as total')
       .countDistinct('prestador_id as prestadores')
       .sum('valor_liquido as valor_total')

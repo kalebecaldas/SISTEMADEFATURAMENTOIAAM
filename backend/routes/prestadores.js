@@ -180,6 +180,7 @@ router.get('/dashboard', authenticateToken, requirePrestador, checkUserActive, a
     // Se não especificado, buscar o último mês com dados
     if (!mes || !ano) {
       const ultimoMes = await db('dados_mensais')
+        .where(q => q.where('anulado', false).orWhereNull('anulado'))
         .select('mes', 'ano')
         .where({ prestador_id: req.user.id })
         .orderBy([
@@ -364,6 +365,7 @@ router.get('/historico/:mes/:ano', authenticateToken, requirePrestador, checkUse
 router.get('/meses-disponiveis', authenticateToken, requirePrestador, checkUserActive, async (req, res) => {
   try {
     const meses = await db('dados_mensais')
+      .where(q => q.where('anulado', false).orWhereNull('anulado'))
       .distinct('mes', 'ano')
       .where({ prestador_id: req.user.id })
       .orderBy([

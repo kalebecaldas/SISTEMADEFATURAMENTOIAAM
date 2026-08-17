@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { Upload, X, Eye, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import '../styles/ComprovantesModal.css';
 
 const ComprovantesModal = ({ colaborador, mes, ano, onClose, onUploadSuccess }) => {
+    const toast = useToast();
+    const confirm = useConfirm();
     const [file, setFile] = useState(null);
     const [loading, setLoading] = useState(false);
     const [comprovante, setComprovante] = useState(null);
@@ -30,12 +34,12 @@ const ComprovantesModal = ({ colaborador, mes, ano, onClose, onUploadSuccess }) 
             // Validar tipo
             const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
             if (!validTypes.includes(selectedFile.type)) {
-                alert('Apenas arquivos PDF e imagens são permitidos');
+                toast.warning('Apenas arquivos PDF e imagens são permitidos');
                 return;
             }
             // Validar tamanho (5MB)
             if (selectedFile.size > 5 * 1024 * 1024) {
-                alert('Arquivo muito grande. Máximo: 5MB');
+                toast.warning('Arquivo muito grande. Máximo: 5MB');
                 return;
             }
             setFile(selectedFile);
@@ -44,7 +48,7 @@ const ComprovantesModal = ({ colaborador, mes, ano, onClose, onUploadSuccess }) 
 
     const handleUpload = async () => {
         if (!file) {
-            alert('Selecione um arquivo');
+            toast.warning('Selecione um arquivo');
             return;
         }
 
@@ -60,12 +64,12 @@ const ComprovantesModal = ({ colaborador, mes, ano, onClose, onUploadSuccess }) 
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            alert('Comprovante enviado com sucesso!');
+            toast.success('Comprovante enviado');
             setFile(null);
             await fetchComprovante();
             if (onUploadSuccess) onUploadSuccess();
         } catch (error) {
-            alert('Erro ao enviar comprovante: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao enviar comprovante', { detail: error.response?.data?.error });
         } finally {
             setLoading(false);
         }
@@ -89,20 +93,25 @@ const ComprovantesModal = ({ colaborador, mes, ano, onClose, onUploadSuccess }) 
             link.click();
             link.remove();
         } catch (error) {
-            alert('Erro ao baixar comprovante');
+            toast.error('Erro ao baixar comprovante');
         }
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('Tem certeza que deseja excluir este comprovante?')) return;
+        const ok = await confirm({
+            title: 'Excluir comprovante?',
+            confirmLabel: 'Excluir',
+            variant: 'danger',
+        });
+        if (!ok) return;
 
         try {
             await api.delete(`/comprovantes/${comprovante.id}`);
-            alert('Comprovante excluído com sucesso');
+            toast.success('Comprovante excluído');
             setComprovante(null);
             if (onUploadSuccess) onUploadSuccess();
         } catch (error) {
-            alert('Erro ao excluir comprovante');
+            toast.error('Erro ao excluir comprovante');
         }
     };
 

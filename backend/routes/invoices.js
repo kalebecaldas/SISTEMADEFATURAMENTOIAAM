@@ -361,6 +361,7 @@ router.get('/pending', authenticateToken, asyncHandler(async (req, res) => {
 
     // Buscar meses com pagamento mas sem nota ou com nota reprovada
     const pagamentos = await db('dados_mensais')
+      .where(q => q.where('anulado', false).orWhereNull('anulado'))
         .where({ prestador_id: prestadorId })
         .select('mes', 'ano', 'valor_liquido')
         .orderBy('ano', 'desc')

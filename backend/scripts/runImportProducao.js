@@ -15,6 +15,9 @@ const { db } = require('../database/init');
 
 const PLANILHAS_BASE = path.resolve(__dirname, '../../planilhas antigas e novas');
 const FORCE = process.argv.includes('--force');
+// --year=2025 limita a operação (incl. --force) apenas àquele ano; sem ele, processa todos.
+const yearArg = process.argv.find(a => a.startsWith('--year='));
+const ONLY_YEAR = yearArg ? parseInt(yearArg.split('=')[1], 10) : null;
 
 async function checarExiste(mes, ano, tipo_colaborador) {
   const tipo = tipo_colaborador || 'prestador';
@@ -28,12 +31,17 @@ async function checarExiste(mes, ano, tipo_colaborador) {
 async function main() {
   console.log(`\n🚀 Iniciando importação histórica para PRODUÇÃO`);
   console.log(`📂 Base de planilhas: ${PLANILHAS_BASE}`);
-  console.log(`🔄 Modo: ${FORCE ? 'FORCE (apaga dados existentes)' : 'SKIP (pula meses com dados)'}\n`);
+  console.log(`🔄 Modo: ${FORCE ? 'FORCE (apaga dados existentes)' : 'SKIP (pula meses com dados)'}`);
+  if (ONLY_YEAR) console.log(`📅 Filtro: somente ano ${ONLY_YEAR}`);
+  console.log('');
 
   let importados = 0, pulados = 0, erros = 0;
 
   for (const entrada of lista) {
     const { caminho, aba, mes, ano, tipo_colaborador = 'prestador' } = entrada;
+
+    if (ONLY_YEAR && ano !== ONLY_YEAR) continue;
+
     const caminhoCompleto = path.join(PLANILHAS_BASE, caminho);
 
     const label = `${String(mes).padStart(2,'0')}/${ano} [${tipo_colaborador}] — ${path.basename(caminho)}`;

@@ -430,11 +430,15 @@ function calcularValorCLT({
 async function cruzarComPrestadores(grupos, tipoContrato) {
   const ehCLT = tipoContrato === 'clt';
 
-  // Carregar TODOS os vínculos ativos (CLT e PJ)
+  // Carregar TODOS os vínculos ativos (CLT e PJ).
+  // data_fim preenchida = contrato encerrado (ex: migrou de PJ para CLT). Esse vínculo
+  // nunca mais pode casar com uma planilha, senão a pessoa volta a ser paga no regime
+  // antigo — foi exatamente assim que 29 registros PJ/CLT duplicados nasceram em 2026.
   const prestadores = await db('usuarios as u')
     .join('prestador_vinculos as pv', 'pv.prestador_id', 'u.id')
     .where('u.tipo', 'prestador')
     .where('pv.ativo', true)
+    .whereNull('pv.data_fim')
     .select(
       'u.id as prestador_id', 'u.nome', 'u.email',
       'pv.id as vinculo_id', 'pv.especialidade', 'pv.unidade', 'pv.turno',
@@ -616,9 +620,15 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
   const calculados = await Promise.all(reconhecidos.map(async (item) => {
     const espComissao = normalizarEspParaComissao(item.especialidade_atend, item.unidade);
     const espVinculo = item.especialidade || '';
-    let comissao = null;
 
-    if (espComissao) {
+    // A especialidade do VÍNCULO é a chave contratual da comissão e tem precedência.
+    // Na planilha quem define o percentual é a coluna de especialidade, não a unidade:
+    // em São José convivem "Fisio" (12/14%), "SJFisio" (16/18%) e "SJAcup" (16/18%) na
+    // mesma unidade. Derivar a chave da unidade forçava todo mundo de São José para o
+    // prefixo SJ e pagava o Silvino a 18% quando o contrato dele é 14%.
+    // Só cai no valor derivado do atendimento quando o vínculo não resolve.
+    let comissao = espVinculo ? await buscarComissao(espVinculo, item.unidade) : null;
+    if (!comissao && espComissao) {
       comissao = await buscarComissao(espComissao, item.unidade);
     }
 
@@ -627,7 +637,8 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
 
     // Especialidades PJ que têm fixo (CLT não usa fixo por turno — regido por salário)
     const ESPECIALIDADES_COM_FIXO_PJ = ['RPG', 'Fisio', 'Acup', 'Neuro', 'SJFisio', 'SJAcup', 'SJRPG'];
-    const temFixoPJ = tipoIndividual === 'prestador' && ESPECIALIDADES_COM_FIXO_PJ.includes(espComissao || espVinculo);
+    // Mesma precedência da comissão: o vínculo manda.
+    const temFixoPJ = tipoIndividual === 'prestador' && ESPECIALIDADES_COM_FIXO_PJ.includes(espVinculo || espComissao);
 
     // Para PJ com vínculo AMBOS: contar quantos turnos reais foram trabalhados neste mês
     // Cada turno = 1 fixo. Vínculo de turno fixo (MANHÃ/TARDE) ou INDEFINIDO nunca dobra —
@@ -866,6 +877,7 @@ async function sincronizarStatusAtivos(tipoColaborador) {
   const vinculosDoUltimoPeriodo = await db('dados_mensais')
     .where({ tipo_colaborador: tipoColaborador, mes: ultimoPeriodo.mes, ano: ultimoPeriodo.ano })
     .whereNotNull('vinculo_id')
+    .where(qb => qb.where('anulado', false).orWhereNull('anulado'))
     .pluck('vinculo_id');
 
   await db('prestador_vinculos')
@@ -873,8 +885,11 @@ async function sincronizarStatusAtivos(tipoColaborador) {
     .update({ ativo: false });
 
   if (vinculosDoUltimoPeriodo.length > 0) {
+    // Nunca reativar contrato encerrado: data_fim é decisão manual do admin e tem
+    // precedência sobre a presença na planilha do período mais recente.
     await db('prestador_vinculos')
       .whereIn('id', vinculosDoUltimoPeriodo)
+      .whereNull('data_fim')
       .update({ ativo: true });
   }
 

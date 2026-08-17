@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Users as UsersIcon, Plus, Edit2, Trash2, Shield, Lock, Unlock, Search, Key } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import '../styles/Users.css';
 
 const Users = () => {
+    const toast = useToast();
+    const confirm = useConfirm();
     const [activeTab, setActiveTab] = useState('prestador');
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -40,7 +44,7 @@ const Users = () => {
             setUsers(response.data.usuarios);
         } catch (error) {
             console.error('Erro ao buscar usuários:', error);
-            alert('Erro ao carregar usuários');
+            toast.error('Erro ao carregar usuários', { detail: error.response?.data?.error });
         } finally {
             setLoading(false);
         }
@@ -50,12 +54,12 @@ const Users = () => {
         e.preventDefault();
         try {
             await api.post('/users', formData);
-            alert('Usuário criado com sucesso!');
+            toast.success('Usuário criado com sucesso');
             setShowModal(false);
             resetForm();
             fetchUsers();
         } catch (error) {
-            alert('Erro ao criar usuário: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao criar usuário', { detail: error.response?.data?.error });
         }
     };
 
@@ -63,24 +67,30 @@ const Users = () => {
         e.preventDefault();
         try {
             await api.put(`/users/${editingUser.id}`, formData);
-            alert('Usuário atualizado com sucesso!');
+            toast.success('Usuário atualizado com sucesso');
             setShowModal(false);
             resetForm();
             fetchUsers();
         } catch (error) {
-            alert('Erro ao atualizar usuário: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao atualizar usuário', { detail: error.response?.data?.error });
         }
     };
 
     const handleDelete = async (id, email) => {
-        if (!window.confirm(`Tem certeza que deseja deletar o usuário ${email}?`)) return;
+        const ok = await confirm({
+            title: 'Deletar usuário?',
+            message: `O usuário ${email} será removido permanentemente.`,
+            confirmLabel: 'Deletar',
+            variant: 'danger',
+        });
+        if (!ok) return;
 
         try {
             await api.delete(`/users/${id}`);
-            alert('Usuário deletado com sucesso!');
+            toast.success('Usuário deletado com sucesso');
             fetchUsers();
         } catch (error) {
-            alert('Erro ao deletar usuário: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao deletar usuário', { detail: error.response?.data?.error });
         }
     };
 
@@ -89,19 +99,24 @@ const Users = () => {
             await api.put(`/users/${id}`, { ativo: !currentStatus });
             fetchUsers();
         } catch (error) {
-            alert('Erro ao atualizar status: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao atualizar status', { detail: error.response?.data?.error });
         }
     };
 
     const handleChangeRole = async (id, newRole) => {
-        if (!window.confirm(`Mudar role para ${newRole}?`)) return;
+        const ok = await confirm({
+            title: `Mudar papel para ${newRole}?`,
+            message: 'O nível de acesso do usuário será alterado.',
+            confirmLabel: 'Mudar papel',
+        });
+        if (!ok) return;
 
         try {
             await api.patch(`/users/${id}/role`, { tipo: newRole });
-            alert(`Usuário promovido/rebaixado para ${newRole}`);
+            toast.success(`Papel alterado para ${newRole}`);
             fetchUsers();
         } catch (error) {
-            alert('Erro ao mudar role: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao mudar papel', { detail: error.response?.data?.error });
         }
     };
 
@@ -147,12 +162,12 @@ const Users = () => {
 
         // Validar senhas
         if (passwordData.senha !== passwordData.confirmar_senha) {
-            alert('As senhas não coincidem!');
+            toast.warning('As senhas não coincidem');
             return;
         }
 
         if (passwordData.senha.length < 6) {
-            alert('A senha deve ter no mínimo 6 caracteres');
+            toast.warning('A senha deve ter no mínimo 6 caracteres');
             return;
         }
 
@@ -165,14 +180,14 @@ const Users = () => {
             const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
             if (currentUser.id === passwordUser.id) {
                 if (!passwordData.senha_atual) {
-                    alert('Para alterar sua própria senha, você deve informar a senha atual');
+                    toast.warning('Para alterar sua própria senha, informe a senha atual');
                     return;
                 }
                 payload.senha_atual = passwordData.senha_atual;
             }
 
             await api.patch(`/users/${passwordUser.id}/password`, payload);
-            alert('Senha alterada com sucesso!');
+            toast.success('Senha alterada com sucesso');
             setShowPasswordModal(false);
             setPasswordUser(null);
             setPasswordData({
@@ -181,7 +196,7 @@ const Users = () => {
                 confirmar_senha: ''
             });
         } catch (error) {
-            alert('Erro ao alterar senha: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao alterar senha', { detail: error.response?.data?.error });
         }
     };
 

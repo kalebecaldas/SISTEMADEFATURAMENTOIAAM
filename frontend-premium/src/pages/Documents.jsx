@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { FileText, Upload, Download, Trash2, Search, Filter, File, AlertTriangle, CheckCircle, Clock, Plus } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import '../styles/Documents.css';
 
 const Documents = () => {
+    const toast = useToast();
+    const confirm = useConfirm();
     const { prestadorId } = useParams();
     const [documents, setDocuments] = useState([]);
     const [requests, setRequests] = useState([]);
@@ -81,7 +85,7 @@ const Documents = () => {
     const handleUpload = async (e) => {
         e.preventDefault();
         if (!uploadData.arquivo) {
-            alert('Selecione um arquivo');
+            toast.warning('Selecione um arquivo');
             return;
         }
 
@@ -121,10 +125,10 @@ const Documents = () => {
             });
             setShowRequestModal(false);
             fetchData();
-            alert('Solicitação criada com sucesso!');
+            toast.success('Solicitação criada');
         } catch (error) {
             console.error('Erro ao criar solicitação:', error);
-            alert('Erro ao criar solicitação');
+            toast.error('Erro ao criar solicitação', { detail: error.response?.data?.error });
         }
     };
 
@@ -140,30 +144,39 @@ const Documents = () => {
             link.remove();
         } catch (error) {
             console.error('Erro ao baixar arquivo:', error);
-            alert('Erro ao baixar arquivo');
+            toast.error('Erro ao baixar arquivo');
         }
     };
 
     const handleDelete = async (id) => {
         if (!isAdmin) return;
-        if (!window.confirm('Tem certeza que deseja excluir este documento?')) return;
+        const ok = await confirm({
+            title: 'Excluir documento?',
+            confirmLabel: 'Excluir',
+            variant: 'danger',
+        });
+        if (!ok) return;
 
         try {
             await api.delete(`/documentos/${id}`);
+            toast.success('Documento excluído');
             fetchData();
         } catch (error) {
             console.error('Erro ao excluir documento:', error);
-            alert('Erro ao excluir documento');
+            toast.error('Erro ao excluir documento');
         }
     };
 
     const handleApproveRequest = async (id) => {
-        if (!window.confirm('Confirmar aprovação do documento?')) return;
+        const ok = await confirm({ title: 'Aprovar documento?', confirmLabel: 'Aprovar' });
+        if (!ok) return;
         try {
             await api.put(`/documentos/solicitacoes/${id}/status`, { status: 'aprovado' });
+            toast.success('Documento aprovado');
             fetchData();
         } catch (error) {
             console.error('Erro ao aprovar:', error);
+            toast.error('Erro ao aprovar documento');
         }
     };
 

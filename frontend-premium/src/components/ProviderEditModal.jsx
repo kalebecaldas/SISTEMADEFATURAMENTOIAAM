@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
 import '../styles/ProviderEditModal.css';
 
 const ProviderEditModal = ({ provider, onClose, onSave }) => {
+    const toast = useToast();
     const [formData, setFormData] = useState({
         nome: provider?.nome || '',
         email: provider?.email || '',
@@ -47,7 +49,7 @@ const ProviderEditModal = ({ provider, onClose, onSave }) => {
             onSave();
             onClose();
         } catch (error) {
-            alert('Erro ao atualizar colaborador: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao atualizar colaborador', { detail: error.response?.data?.error });
         } finally {
             setLoading(false);
         }

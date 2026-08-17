@@ -17,6 +17,7 @@ router.get('/stats', authenticateToken, requireAdmin, asyncHandler(async (req, r
 
     // Meses com mais metas batidas
     const mesesComMetas = await db('dados_mensais')
+        .where(q => q.where('anulado', false).orWhereNull('anulado'))
         .select(
             'mes',
             'ano',
@@ -58,6 +59,7 @@ router.get('/stats', authenticateToken, requireAdmin, asyncHandler(async (req, r
 
     // Soma total 3 meses - FATURAMENTO
     const soma3Meses = await db('dados_mensais')
+        .where(q => q.where('anulado', false).orWhereNull('anulado'))
         .sum('valor_clinica as total')
         .where(function () {
             this.where(function () {
@@ -73,6 +75,7 @@ router.get('/stats', authenticateToken, requireAdmin, asyncHandler(async (req, r
 
     // Soma total 6 meses - FATURAMENTO
     const soma6Meses = await db('dados_mensais')
+        .where(q => q.where('anulado', false).orWhereNull('anulado'))
         .sum('valor_clinica as total')
         .where(function () {
             this.where(function () {
@@ -88,6 +91,7 @@ router.get('/stats', authenticateToken, requireAdmin, asyncHandler(async (req, r
 
     // Soma total 12 meses - FATURAMENTO
     const soma12Meses = await db('dados_mensais')
+        .where(q => q.where('anulado', false).orWhereNull('anulado'))
         .sum('valor_clinica as total')
         .where(function () {
             this.where(function () {
@@ -155,6 +159,7 @@ router.get('/evolucao/:prestadorId', authenticateToken, requireAdmin, asyncHandl
     const { meses = 12 } = req.query;
 
     const evolucao = await db('dados_mensais')
+        .where(q => q.where('anulado', false).orWhereNull('anulado'))
         .select('mes', 'ano', 'valor_liquido', 'meta_batida', 'faltas')
         .where({ prestador_id: prestadorId })
         .orderBy([

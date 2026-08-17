@@ -14,6 +14,7 @@ router.get('/dashboard', authenticateToken, requireAdmin, async (req, res) => {
     // Se não especificado, buscar o último mês com dados
     if (!mes || !ano) {
       const ultimoMes = await db('dados_mensais')
+        .where(q => q.where('anulado', false).orWhereNull('anulado'))
         .select('mes', 'ano')
         .orderBy([
           { column: 'ano', order: 'desc' },
@@ -45,6 +46,7 @@ router.get('/dashboard', authenticateToken, requireAdmin, async (req, res) => {
     // Estatísticas gerais
     const stats = await db('dados_mensais')
       .where({ mes: parseInt(targetMes), ano: parseInt(targetAno) })
+      .where(q => q.where('anulado', false).orWhereNull('anulado'))
       .select(
         db.raw('COUNT(DISTINCT prestador_id) as total_prestadores'),
         db.raw('SUM(valor_liquido) as valor_total'),
@@ -162,6 +164,7 @@ router.get('/prestadores/:id', authenticateToken, requireAdmin, async (req, res)
 
     // Buscar histórico de dados
     const historico = await db('dados_mensais')
+      .where(q => q.where('anulado', false).orWhereNull('anulado'))
       .select(
         'mes', 'ano', 'valor_liquido', 'faltas', 'meta_batida',
         'valor_bruto', 'especialidade', 'unidade', 'created_at'
@@ -222,6 +225,7 @@ router.put('/prestadores/:id/status', authenticateToken, requireAdmin, async (re
 router.get('/meses-disponiveis', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const meses = await db('dados_mensais')
+      .where(q => q.where('anulado', false).orWhereNull('anulado'))
       .distinct('mes', 'ano')
       .orderBy([
         { column: 'ano', order: 'desc' },

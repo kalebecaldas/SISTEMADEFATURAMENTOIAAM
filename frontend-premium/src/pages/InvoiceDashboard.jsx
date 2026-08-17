@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, CheckCircle, XCircle, Mail, AlertCircle, Send, Clock } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import '../styles/InvoiceDashboard.css';
 
 // Sistema tem histórico desde 2021 — gerar dinamicamente até o ano atual + 1
@@ -8,6 +10,8 @@ const anoAtualID = new Date().getFullYear();
 const ANOS_DISPONIVEIS = Array.from({ length: anoAtualID - 2021 + 2 }, (_, i) => 2021 + i);
 
 const InvoiceDashboard = () => {
+    const toast = useToast();
+    const confirm = useConfirm();
     const [mes, setMes] = useState(new Date().getMonth() + 1);
     const [ano, setAno] = useState(new Date().getFullYear());
     const [dados, setDados] = useState(null);
@@ -59,15 +63,16 @@ const InvoiceDashboard = () => {
     };
 
     const handleSendReminder = async (prestadorId, prestadorEmail) => {
-        if (!window.confirm(`Enviar email com valores para ${prestadorEmail}?`)) return;
+        const ok = await confirm({ title: 'Enviar email com valores?', message: `Destinatário: ${prestadorEmail}`, confirmLabel: 'Enviar' });
+        if (!ok) return;
 
         setSending(true);
         try {
             // Enviar email completo com valores (Controle de Envios)
             await api.post(`/pagamentos/enviar-email/${prestadorId}/${mes}/${ano}`);
-            alert('Email enviado com sucesso!');
+            toast.success('Email enviado');
         } catch (error) {
-            alert('Erro ao enviar email: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao enviar email', { detail: error.response?.data?.error });
         } finally {
             setSending(false);
         }
@@ -76,19 +81,20 @@ const InvoiceDashboard = () => {
     const handleSendMassReminder = async () => {
         const pendentes = dados?.prestadores.filter(p => !p.nota_enviada) || [];
         if (pendentes.length === 0) {
-            alert('Não há prestadores pendentes');
+            toast.info('Não há prestadores pendentes');
             return;
         }
 
-        if (!window.confirm(`Enviar lembrete para ${pendentes.length} prestadores?`)) return;
+        const ok = await confirm({ title: 'Enviar lembretes?', message: `Serão enviados para ${pendentes.length} prestador(es) pendente(s).`, confirmLabel: 'Enviar' });
+        if (!ok) return;
 
         setSending(true);
         try {
             // TODO: Implementar rota de lembrete em massa
             await api.post(`/invoices/reminder-mass/${mes}/${ano}`);
-            alert(`Lembretes enviados para ${pendentes.length} prestadores!`);
+            toast.success(`Lembretes enviados para ${pendentes.length} prestador(es)`);
         } catch (error) {
-            alert('Erro ao enviar lembretes: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao enviar lembretes', { detail: error.response?.data?.error });
         } finally {
             setSending(false);
         }
@@ -100,7 +106,7 @@ const InvoiceDashboard = () => {
         const count = isAllSelected ? total : selectedProviders.length;
 
         if (count === 0) {
-            alert('Não há prestadores para enviar');
+            toast.info('Não há prestadores para enviar');
             return;
         }
 
@@ -108,7 +114,8 @@ const InvoiceDashboard = () => {
             ? `Enviar comprovantes de pagamento para todos os ${total} prestadores?`
             : `Enviar comprovantes para ${count} prestador(es) selecionado(s)?`;
 
-        if (!window.confirm(message)) return;
+        const ok = await confirm({ title: 'Enviar comprovantes?', message, confirmLabel: 'Enviar' });
+        if (!ok) return;
 
         setSending(true);
 
@@ -116,7 +123,7 @@ const InvoiceDashboard = () => {
             if (isAllSelected) {
                 // Enviar para todos
                 const response = await api.post(`/pagamentos/enviar-email-massa/${mes}/${ano}`);
-                alert(response.data.message || 'Emails enviados com sucesso!');
+                toast.success(response.data.message || 'Emails enviados');
             } else {
                 // Enviar para selecionados
                 let sucessos = 0;
@@ -132,14 +139,18 @@ const InvoiceDashboard = () => {
                     }
                 }
 
-                alert(`Envios concluídos!\nSucessos: ${sucessos}\nErros: ${erros}`);
+                if (erros === 0) {
+                    toast.success(`Envios concluídos: ${sucessos}`);
+                } else {
+                    toast.warning('Envios concluídos com falhas', { detail: `Sucessos: ${sucessos} · Erros: ${erros}` });
+                }
             }
 
             setSelectedProviders([]);
             setSelectAll(false);
             fetchDados();
         } catch (error) {
-            alert('Erro ao enviar emails: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao enviar emails', { detail: error.response?.data?.error });
         } finally {
             setSending(false);
         }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Download, Calendar, TrendingUp, DollarSign, Users, Clock } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
 import '../styles/CustomReportModal.css';
 // Import estático do jsPDF e autoTable para garantir que o plugin seja carregado
 import { jsPDF } from 'jspdf';
@@ -29,6 +30,7 @@ const anoAtualCRM = new Date().getFullYear();
 const ANOS = Array.from({ length: anoAtualCRM - 2021 + 2 }, (_, i) => 2021 + i);
 
 function CustomReportModal({ isOpen, onClose }) {
+    const toast = useToast();
     const [mesInicio, setMesInicio] = useState(new Date().getMonth() + 1);
     const [anoInicio, setAnoInicio] = useState(new Date().getFullYear());
     const [mesesPeriodo, setMesesPeriodo] = useState(3);
@@ -51,7 +53,7 @@ function CustomReportModal({ isOpen, onClose }) {
             setSelectAll(true);
         } catch (error) {
             console.error('Erro ao gerar relatório:', error);
-            alert('Erro ao gerar relatório: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao gerar relatório', { detail: error.response?.data?.error });
         } finally {
             setLoading(false);
         }
@@ -507,7 +509,7 @@ function CustomReportModal({ isOpen, onClose }) {
             doc.save(`relatorio-detalhado-${data.periodo.inicio.replace('/', '-')}-${data.periodo.fim.replace('/', '-')}.pdf`);
         } catch (error) {
             console.error('Erro ao gerar PDF:', error);
-            alert('Erro ao gerar PDF: ' + error.message);
+            toast.error('Erro ao gerar PDF', { detail: error.message });
         }
     };
 

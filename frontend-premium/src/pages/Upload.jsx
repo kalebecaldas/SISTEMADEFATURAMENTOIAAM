@@ -3,9 +3,13 @@ import { Upload as UploadIcon, CheckCircle, AlertTriangle, X, Trash2, Edit, Cale
 import api from '../services/api';
 import UploadConfirmationModal from '../components/UploadConfirmationModal';
 import ResumoMensalModal from '../components/ResumoMensalModal';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import '../styles/Upload.css';
 
 const UploadPage = () => {
+    const toast = useToast();
+    const confirm = useConfirm();
     const [year, setYear] = useState(new Date().getFullYear());
     const [monthsData, setMonthsData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -93,7 +97,7 @@ const UploadPage = () => {
             setShowUploadModal(false);
         } catch (error) {
             console.error('Error processing spreadsheet:', error);
-            alert('Erro ao processar planilha: ' + (error.response?.data?.error || error.message));
+            toast.error('Erro ao processar planilha', { detail: error.response?.data?.error || error.message });
         } finally {
             setProcessing(false);
         }
@@ -111,7 +115,7 @@ const UploadPage = () => {
                 sobreescrever: overwriteMode
             });
 
-            alert(`✅ ${response.data.message || 'Upload concluído com sucesso!'}`);
+            toast.success(response.data.message || 'Upload concluído');
             setConfirmationData(null);
             setFile(null);
             setSelectedMonth(null);
@@ -121,7 +125,7 @@ const UploadPage = () => {
             await loadMonthsData();
         } catch (error) {
             console.error('Error confirming upload:', error);
-            alert('Erro ao salvar dados: ' + (error.response?.data?.error || error.message));
+            toast.error('Erro ao salvar dados', { detail: error.response?.data?.error || error.message });
         } finally {
             setUploading(false);
         }
@@ -130,20 +134,26 @@ const UploadPage = () => {
     const handleDelete = async (mes, tipo) => {
         const tipoTexto = tipo === 'clt' ? 'CLT' : 'Prestadores de Serviço';
 
-        if (!window.confirm(`⚠️ Tem certeza que deseja DELETAR todos os dados de ${tipoTexto} em ${meses[mes - 1]}/${year}?\n\nISSO IRÁ REMOVER:\n✗ Todos os registros de pagamento deste tipo\n✗ Vínculos de prestadores órfãos\n✗ Prestadores não confirmados\n\nEsta ação NÃO PODE SER DESFEITA!`)) {
-            return;
-        }
+        const ok = await confirm({
+            title: `Deletar dados de ${tipoTexto}?`,
+            message: `Período ${meses[mes - 1]}/${year}. Remove os registros de pagamento, vínculos órfãos e prestadores não confirmados. Esta ação não pode ser desfeita.`,
+            confirmLabel: 'Deletar tudo',
+            variant: 'danger',
+        });
+        if (!ok) return;
 
         setLoading(true);
         try {
             const response = await api.delete(`/upload/deletar/${mes}/${year}/${tipo}`);
-            alert(`✅ ${response.data.message}\n\n📊 ${response.data.deletados} registros removidos\n👤 ${response.data.prestadores_removidos || 0} prestadores removidos`);
+            toast.success(response.data.message || 'Dados deletados', {
+                detail: `${response.data.deletados} registros · ${response.data.prestadores_removidos || 0} prestadores removidos`,
+            });
 
             // Recarregar dados
             await loadMonthsData();
         } catch (error) {
             console.error('Error deleting data:', error);
-            alert('Erro ao deletar dados: ' + (error.response?.data?.error || error.message));
+            toast.error('Erro ao deletar dados', { detail: error.response?.data?.error || error.message });
         } finally {
             setLoading(false);
         }
@@ -473,13 +483,19 @@ const UploadPage = () => {
                                             <button
                                                 className="btn-icon btn-danger full-width"
                                                 onClick={async () => {
-                                                    if (!window.confirm(`Apagar TODOS os dados de ${meses[monthData.mes - 1]}/${year} (CLT + PJ)?`)) return;
+                                                    const ok = await confirm({
+                                                        title: 'Apagar todos os dados do mês?',
+                                                        message: `${meses[monthData.mes - 1]}/${year} — CLT e PJ. Esta ação não pode ser desfeita.`,
+                                                        confirmLabel: 'Apagar tudo',
+                                                        variant: 'danger',
+                                                    });
+                                                    if (!ok) return;
                                                     setLoading(true);
                                                     try {
                                                         await api.delete(`/upload/deletar/${monthData.mes}/${year}`);
                                                         await loadMonthsData();
                                                     } catch (e) {
-                                                        alert('Erro ao apagar: ' + (e.response?.data?.error || e.message));
+                                                        toast.error('Erro ao apagar', { detail: e.response?.data?.error || e.message });
                                                     } finally {
                                                         setLoading(false);
                                                     }

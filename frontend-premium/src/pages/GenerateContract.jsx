@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, FileText, Save } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
 import '../styles/Invoices.css';
 
 const GenerateContract = () => {
+    const toast = useToast();
     const [prestadores, setPrestadores] = useState([]);
     const [modelos, setModelos] = useState([]);
     const [selectedPrestador, setSelectedPrestador] = useState('');
@@ -83,12 +85,11 @@ const GenerateContract = () => {
                 dados: formData
             });
 
-            alert('Contrato gerado com sucesso!');
+            toast.success('Contrato gerado com sucesso');
             window.location.href = '/contratos';
         } catch (error) {
             console.error('Erro:', error);
-            const errorMessage = error.response?.data?.error || 'Erro ao gerar contrato';
-            alert(`Erro: ${errorMessage}`);
+            toast.error('Erro ao gerar contrato', { detail: error.response?.data?.error });
         } finally {
             setLoading(false);
         }

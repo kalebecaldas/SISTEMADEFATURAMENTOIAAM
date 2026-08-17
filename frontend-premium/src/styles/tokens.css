@@ -1,0 +1,88 @@
+/* Design tokens — escala compartilhada de spacing/raio/badge/z-index.
+   Complementa as cores e sombras já definidas em global.css. */
+:root {
+  /* Spacing scale (base 4px) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Badges semânticos (consolida os usos ad-hoc espalhados pelas telas) */
+  --badge-success-bg: rgba(34, 197, 94, 0.15);
+  --badge-success-fg: #22c55e;
+  --badge-danger-bg: rgba(239, 68, 68, 0.12);
+  --badge-danger-fg: #ef4444;
+  --badge-warn-bg: rgba(234, 179, 8, 0.15);
+  --badge-warn-fg: #eab308;
+  --badge-info-bg: rgba(99, 102, 241, 0.15);
+  --badge-info-fg: var(--primary);
+
+  /* Camadas */
+  --z-drawer: 900;
+  --z-modal: 1000;
+  --z-toast: 1100;
+
+  /* ─── Aliases de compatibilidade ──────────────────────────────────────
+     Nomes usados em ~70 lugares (CalcularPagamentos, MapeamentoNomes,
+     TabelaPreviewCalculo, ResumoMensalModal, EspecialidadesAdmin,
+     ComprovantesModal) que nunca existiram em global.css — o resultado era
+     borda e fundo simplesmente sumindo. Apontam para o token real, então
+     seguem o tema claro/escuro automaticamente. */
+  --border-color: var(--border-light);
+  --glass-bg: var(--bg-glass);
+  --input-bg: var(--bg-input);
+  --color-success: var(--badge-success-fg);
+
+  /* ─── Regime de contrato ──────────────────────────────────────────────
+     PJ e CLT aparecem lado a lado o tempo todo (upload, revisão, tabelas).
+     Cor fixa e nomeada evita o #3b82f6/#d97706 solto pelo JSX. */
+  --regime-pj-fg: #3b82f6;
+  --regime-pj-bg: rgba(59, 130, 246, 0.14);
+  --regime-pj-border: rgba(59, 130, 246, 0.4);
+  --regime-clt-fg: #f59e0b;
+  --regime-clt-bg: rgba(245, 158, 11, 0.14);
+  --regime-clt-border: rgba(245, 158, 11, 0.4);
+
+  /* Realces de atenção usados nos banners de revisão */
+  --attention-fg: #fb923c;
+  --attention-bg: rgba(251, 146, 60, 0.08);
+  --attention-border: rgba(251, 146, 60, 0.4);
+  --accent-alt-fg: #818cf8;
+  --accent-alt-bg: rgba(129, 140, 248, 0.08);
+  --accent-alt-border: rgba(129, 140, 248, 0.4);
+
+  /* Superfície elevada dentro de um card/banner. Precisa ser clara no tema
+     claro e escura no escuro — o rgba(0,0,0,.15) fixo quebrava no claro. */
+  --surface-sunken: rgba(255, 255, 255, 0.04);
+
+  /* Movimento e foco */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: 140ms var(--ease-out);
+  --transition-base: 220ms var(--ease-out);
+  --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.45);
+}
+
+:root[data-theme='light'] {
+  --surface-sunken: rgba(15, 23, 42, 0.04);
+  --focus-ring: 0 0 0 3px rgba(0, 102, 255, 0.3);
+  --attention-bg: rgba(251, 146, 60, 0.1);
+  --accent-alt-bg: rgba(99, 102, 241, 0.08);
+  --accent-alt-fg: #4f46e5;
+}
+
+/* Respeita quem pediu menos animação no sistema operacional. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+    --transition-base: 0ms;
+  }
+}

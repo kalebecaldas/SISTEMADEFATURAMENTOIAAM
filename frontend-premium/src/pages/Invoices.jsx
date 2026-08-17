@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Eye, Search, CheckCircle, XCircle, AlertCircle, Calendar, X, Send, ThumbsUp, ThumbsDown, TrendingUp, Users, Clock, RefreshCw } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import '../styles/Invoices.css';
 
 // Sistema tem histórico desde 2021 — gerar dinamicamente até o ano atual + 1
@@ -8,6 +10,8 @@ const anoAtualInv = new Date().getFullYear();
 const ANOS_DISPONIVEIS = Array.from({ length: anoAtualInv - 2021 + 2 }, (_, i) => 2021 + i);
 
 const Invoices = () => {
+    const toast = useToast();
+    const confirm = useConfirm();
     const [prestadores, setPrestadores] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -95,7 +99,7 @@ const Invoices = () => {
 
     const handleViewInvoice = async (prestador) => {
         if (!prestador.nota_id) {
-            alert('Nota fiscal não encontrada');
+            toast.warning('Nota fiscal não encontrada');
             return;
         }
 
@@ -109,7 +113,7 @@ const Invoices = () => {
             setShowViewModal(prestador);
         } catch (error) {
             console.error('Erro ao carregar nota:', error);
-            alert('Erro ao carregar nota fiscal');
+            toast.error('Erro ao carregar nota fiscal');
         }
     };
 
@@ -126,18 +130,19 @@ const Invoices = () => {
     const handleApprove = async () => {
         if (!showViewModal?.nota_id) return;
 
-        if (!window.confirm('Tem certeza que deseja aprovar esta nota fiscal?')) return;
+        const ok = await confirm({ title: 'Aprovar nota fiscal?', confirmLabel: 'Aprovar' });
+        if (!ok) return;
 
         setApproving(true);
         try {
             await api.post(`/invoices/${showViewModal.nota_id}/approve`);
-            alert('Nota fiscal aprovada com sucesso!');
+            toast.success('Nota fiscal aprovada');
             closeViewModal();
             fetchPrestadores();
             fetchRecentActivities();
         } catch (error) {
             console.error('Erro ao aprovar nota:', error);
-            alert('Erro ao aprovar nota fiscal');
+            toast.error('Erro ao aprovar nota fiscal');
         } finally {
             setApproving(false);
         }
@@ -147,7 +152,7 @@ const Invoices = () => {
         if (!showViewModal?.nota_id) return;
 
         if (!rejectMotivo.trim()) {
-            alert('Por favor, informe o motivo da reprovação');
+            toast.warning('Informe o motivo da reprovação');
             return;
         }
 
@@ -156,26 +161,27 @@ const Invoices = () => {
             await api.post(`/invoices/${showViewModal.nota_id}/reject`, {
                 motivo: rejectMotivo
             });
-            alert('Nota fiscal reprovada');
+            toast.success('Nota fiscal reprovada');
             closeViewModal();
             fetchPrestadores();
             fetchRecentActivities();
         } catch (error) {
             console.error('Erro ao reprovar nota:', error);
-            alert('Erro ao reprovar nota fiscal');
+            toast.error('Erro ao reprovar nota fiscal');
         } finally {
             setApproving(false);
         }
     };
 
     const handleSendReminder = async (prestadorId) => {
-        if (!window.confirm('Enviar lembrete de nota fiscal para este prestador?')) return;
+        const ok = await confirm({ title: 'Enviar lembrete?', message: 'Um lembrete de nota fiscal será enviado a este prestador.', confirmLabel: 'Enviar' });
+        if (!ok) return;
 
         try {
             await api.post(`/invoices/reminder/${prestadorId}/${monthFilter}/${yearFilter}`);
-            alert('Lembrete enviado com sucesso!');
+            toast.success('Lembrete enviado');
         } catch (error) {
-            alert('Erro ao enviar lembrete: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao enviar lembrete', { detail: error.response?.data?.error });
         }
     };
 

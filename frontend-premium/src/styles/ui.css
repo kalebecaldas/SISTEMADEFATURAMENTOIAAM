@@ -1,0 +1,607 @@
+/* Componentes base da Fase 0 — Toast, ConfirmDialog, Skeleton, EmptyState.
+   Todos usam as CSS vars de tema (global.css) para funcionar em dark/light. */
+
+/* ─── Toast ─────────────────────────────────────────────────────────── */
+.toast-viewport {
+  position: fixed;
+  bottom: var(--space-5);
+  right: var(--space-5);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(380px, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-light);
+  border-left: 3px solid var(--toast-accent, var(--primary));
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: toast-in 0.25s ease-out;
+}
+
+.toast.leaving {
+  animation: toast-out 0.2s ease-in forwards;
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  color: var(--toast-accent, var(--primary));
+  margin-top: 1px;
+}
+
+.toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.toast-detail {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+.toast-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+}
+
+.toast-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
+
+.toast--success { --toast-accent: var(--badge-success-fg); }
+.toast--error { --toast-accent: var(--badge-danger-fg); }
+.toast--warning { --toast-accent: var(--badge-warn-fg); }
+.toast--info { --toast-accent: var(--badge-info-fg); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; transform: translateX(20px); }
+}
+
+/* ─── ConfirmDialog ─────────────────────────────────────────────────── */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.confirm-dialog {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5);
+  animation: confirm-pop 0.2s ease-out;
+}
+
+.confirm-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-4);
+  background: var(--badge-info-bg);
+  color: var(--badge-info-fg);
+}
+
+.confirm-dialog.danger .confirm-icon {
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-fg);
+}
+
+.confirm-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.confirm-message {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: var(--space-5);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.confirm-btn {
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border-light);
+  transition: filter 0.15s, background 0.15s;
+}
+
+.confirm-btn--cancel {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.confirm-btn--cancel:hover { background: var(--border-light); }
+
+.confirm-btn--confirm {
+  background: var(--primary);
+  color: #fff;
+  border-color: transparent;
+}
+
+.confirm-btn--confirm:hover { filter: brightness(1.1); }
+
+.confirm-dialog.danger .confirm-btn--confirm {
+  background: var(--badge-danger-fg);
+}
+
+@keyframes confirm-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ─── Skeleton ──────────────────────────────────────────────────────── */
+.skeleton {
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--border-light), transparent);
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+.skeleton-card {
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  background: var(--bg-glass);
+}
+
+.skeleton-row {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+}
+
+/* ─── EmptyState ────────────────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-8) var(--space-5);
+  gap: var(--space-3);
+}
+
+.empty-state-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-input);
+  color: var(--text-muted);
+}
+
+.empty-state-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.empty-state-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.empty-state-action {
+  margin-top: var(--space-2);
+  padding: 0.55rem 1.2rem;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.empty-state-action:hover { filter: brightness(1.1); }
+
+/* ─── Foco visível ──────────────────────────────────────────────────────
+   Teclado precisa enxergar onde está. Só em :focus-visible para não
+   desenhar anel em clique de mouse. */
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* ─── Banner de revisão ─────────────────────────────────────────────────
+   Bloco de aviso acionável: título, explicação, ações em massa e uma lista
+   de linhas individuais. Substitui os banners montados com style inline
+   (conflitos CLT, turnos divergentes), que usavam cor fixa e quebravam no
+   tema claro. */
+.ui-banner {
+  --banner-fg: var(--badge-info-fg);
+  --banner-bg: var(--badge-info-bg);
+  --banner-border: var(--border-light);
+  border: 1px solid var(--banner-border);
+  background: var(--banner-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.ui-banner--attention {
+  --banner-fg: var(--attention-fg);
+  --banner-bg: var(--attention-bg);
+  --banner-border: var(--attention-border);
+}
+
+.ui-banner--accent {
+  --banner-fg: var(--accent-alt-fg);
+  --banner-bg: var(--accent-alt-bg);
+  --banner-border: var(--accent-alt-border);
+}
+
+.ui-banner-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.ui-banner-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ui-banner-heading > svg {
+  color: var(--banner-fg);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ui-banner-title {
+  font-weight: 700;
+  color: var(--banner-fg);
+  font-size: 0.9rem;
+  display: block;
+}
+
+.ui-banner-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.5;
+  max-width: 62ch;
+}
+
+.ui-banner-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.ui-banner-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ui-banner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.ui-banner-row-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.ui-banner-row-name {
+  font-weight: 600;
+  font-size: 0.83rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 26ch;
+}
+
+.ui-banner-row-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ─── Botões compactos usados dentro dos banners ────────────────────── */
+.ui-btn-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.ui-btn-mini--outline {
+  border-color: var(--banner-border, var(--border-light));
+  color: var(--banner-fg, var(--text-primary));
+}
+
+.ui-btn-mini--outline:hover {
+  background: var(--banner-bg, var(--bg-input));
+  filter: brightness(1.15);
+}
+
+.ui-btn-mini--danger {
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-fg);
+}
+
+.ui-btn-mini--danger:hover {
+  filter: brightness(1.2);
+}
+
+/* ─── Chip / badge ──────────────────────────────────────────────────── */
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: var(--bg-input);
+  color: var(--text-muted);
+}
+
+.ui-chip--pj {
+  background: var(--regime-pj-bg);
+  color: var(--regime-pj-fg);
+}
+
+.ui-chip--clt {
+  background: var(--regime-clt-bg);
+  color: var(--regime-clt-fg);
+}
+
+.ui-chip--success {
+  background: var(--badge-success-bg);
+  color: var(--badge-success-fg);
+}
+
+.ui-chip--warn {
+  background: var(--badge-warn-bg);
+  color: var(--badge-warn-fg);
+}
+
+.ui-chip--attention {
+  background: var(--attention-bg);
+  color: var(--attention-fg);
+}
+
+/* ─── KPI ───────────────────────────────────────────────────────────────
+   Números de topo de página (total pago, pendências, competência). */
+.ui-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.ui-kpi {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.ui-kpi:hover {
+  border-color: var(--kpi-accent, var(--primary));
+  transform: translateY(-1px);
+}
+
+.ui-kpi-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--kpi-accent-bg, var(--badge-info-bg));
+  color: var(--kpi-accent, var(--badge-info-fg));
+}
+
+.ui-kpi-body {
+  min-width: 0;
+}
+
+.ui-kpi-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.ui-kpi-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+  /* Números de dinheiro alinham melhor com largura fixa de dígito. */
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-kpi-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* ─── Barra de ação fixa ────────────────────────────────────────────────
+   Em telas longas (revisão com 40 profissionais) o botão de confirmar
+   ficava no fim do scroll. Fixando no rodapé ele fica sempre alcançável. */
+.ui-sticky-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-lg);
+}
+
+.ui-sticky-bar-info {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.ui-sticky-bar-total {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-sticky-bar-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .ui-banner-head { flex-direction: column; }
+  .ui-banner-actions { width: 100%; }
+  .ui-banner-actions .ui-btn-mini { flex: 1; justify-content: center; }
+  .ui-banner-row { flex-direction: column; align-items: stretch; }
+  .ui-sticky-bar { flex-direction: column; align-items: stretch; }
+  .ui-sticky-bar-actions .cp-btn-primary,
+  .ui-sticky-bar-actions .cp-btn-secondary { flex: 1; justify-content: center; }
+}
+
+.ui-btn-mini--success {
+  background: var(--badge-success-bg);
+  color: var(--badge-success-fg);
+}
+
+.ui-btn-mini--success:hover:not(:disabled) { filter: brightness(1.2); }
+
+.ui-btn-mini:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Spinner reaproveitado por qualquer ícone em estado de carregamento. */
+.cp-spin { animation: spin 0.8s linear infinite; }

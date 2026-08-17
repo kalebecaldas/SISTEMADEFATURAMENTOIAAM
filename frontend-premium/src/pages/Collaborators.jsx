@@ -4,10 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import ProviderEditModal from '../components/ProviderEditModal';
 import BillingHistoryModal from '../components/BillingHistoryModal';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import '../styles/Providers.css';
 
 const Collaborators = () => {
     const navigate = useNavigate();
+    const toast = useToast();
+    const confirm = useConfirm();
     const [providers, setProviders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -63,20 +67,27 @@ const Collaborators = () => {
     const handleResendEmail = async (providerId) => {
         try {
             await api.post(`/confirmacao/enviar/${providerId}`);
-            alert('Email de confirmação enviado com sucesso!');
+            toast.success('Email de confirmação enviado');
         } catch (error) {
-            alert('Erro ao enviar email: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao enviar email', { detail: error.response?.data?.error });
         }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm('Tem certeza que deseja excluir este colaborador?')) {
-            try {
-                await api.delete(`/colaboradores/${id}`);
-                fetchProviders();
-            } catch (error) {
-                console.error('Erro ao excluir:', error);
-            }
+        const ok = await confirm({
+            title: 'Excluir colaborador?',
+            message: 'Isso remove os dados mensais e contratos vinculados a ele.',
+            confirmLabel: 'Excluir',
+            variant: 'danger',
+        });
+        if (!ok) return;
+        try {
+            await api.delete(`/colaboradores/${id}`);
+            toast.success('Colaborador excluído');
+            fetchProviders();
+        } catch (error) {
+            console.error('Erro ao excluir:', error);
+            toast.error('Erro ao excluir colaborador', { detail: error.response?.data?.error });
         }
     };
 

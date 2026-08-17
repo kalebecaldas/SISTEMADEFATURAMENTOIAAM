@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Bell, Shield, Database, Mail, CheckCircle, XCircle, Loader, FileText } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
 import '../styles/Settings.css';
 
 const Settings = () => {
+    const toast = useToast();
     const [loading, setLoading] = useState(false);
     const [testingEmail, setTestingEmail] = useState(false);
     const [emailTestResult, setEmailTestResult] = useState(null);
@@ -85,10 +87,10 @@ const Settings = () => {
         setEmailTestResult(null);
         try {
             await api.post('/settings', emailConfig);
-            alert('Configurações de email salvas com sucesso!');
+            toast.success('Configurações de email salvas');
         } catch (error) {
             console.error('Erro ao salvar configurações de email:', error);
-            alert('Erro ao salvar configurações de email');
+            toast.error('Erro ao salvar configurações de email', { detail: error.response?.data?.error });
         } finally {
             setLoading(false);
         }
@@ -98,10 +100,10 @@ const Settings = () => {
         setLoading(true);
         try {
             await api.post('/settings', systemConfig);
-            alert('Configurações do sistema salvas com sucesso!');
+            toast.success('Configurações do sistema salvas');
         } catch (error) {
             console.error('Erro ao salvar configurações do sistema:', error);
-            alert('Erro ao salvar configurações do sistema');
+            toast.error('Erro ao salvar configurações do sistema', { detail: error.response?.data?.error });
         } finally {
             setLoading(false);
         }
@@ -132,10 +134,10 @@ const Settings = () => {
         setLoading(true);
         try {
             await api.post('/settings/automation', automationConfig);
-            alert('Configurações de automação salvas! O scheduler será reiniciado.');
+            toast.success('Configurações de automação salvas', { detail: 'O scheduler será reiniciado.' });
         } catch (error) {
             console.error('Erro ao salvar automação:', error);
-            alert('Erro ao salvar configurações de automação');
+            toast.error('Erro ao salvar configurações de automação', { detail: error.response?.data?.error });
         } finally {
             setLoading(false);
         }

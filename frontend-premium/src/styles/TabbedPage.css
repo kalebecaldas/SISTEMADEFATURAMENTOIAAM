@@ -117,3 +117,68 @@
         background: var(--gradient-primary);
     }
 }
+/* ─── Cabeçalho do hub ──────────────────────────────────────────────────
+   .tab-content .page-header some (regra acima), então o hub precisa do
+   próprio título — antes a página abria direto nas abas, sem contexto. */
+.hub-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+}
+
+.hub-header h1 {
+    font-size: 1.8rem;
+    margin: 0 0 0.35rem 0;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hub-header p {
+    color: var(--text-secondary);
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* Contador de pendências na aba. */
+.tab-count {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: var(--radius-pill);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 18px;
+    background: var(--badge-warn-bg);
+    color: var(--badge-warn-fg);
+}
+
+.tab.active .tab-count {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+}
+
+/* Em telas estreitas as abas viram uma faixa rolável em vez de empilhar
+   quatro botões de altura cheia e empurrar o conteúdo pra fora da tela. */
+@media (max-width: 768px) {
+    .tabs {
+        flex-direction: row;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab {
+        flex: 0 0 auto;
+        justify-content: center;
+        padding: 0.7rem 1rem;
+        white-space: nowrap;
+    }
+
+    .hub-header h1 { font-size: 1.4rem; }
+}

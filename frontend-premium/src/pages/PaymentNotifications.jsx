@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Send, Edit2, Check, X, Mail, Users, DollarSign, AlertCircle, FileText, Upload as UploadIcon } from 'lucide-react';
 import api from '../services/api';
 import ComprovantesModal from '../components/ComprovantesModal';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import '../styles/PaymentNotifications.css';
 
 // Sistema tem histórico desde 2021 — gerar dinamicamente até o ano atual + 1
@@ -9,6 +11,8 @@ const anoAtualPN = new Date().getFullYear();
 const ANOS_DISPONIVEIS = Array.from({ length: anoAtualPN - 2021 + 2 }, (_, i) => 2021 + i);
 
 const PaymentNotifications = () => {
+    const toast = useToast();
+    const confirm = useConfirm();
     const [mes, setMes] = useState(new Date().getMonth() + 1);
     const [ano, setAno] = useState(new Date().getFullYear());
     const [dados, setDados] = useState([]);
@@ -72,9 +76,9 @@ const PaymentNotifications = () => {
             setValorEdit('');
             setObservacoes('');
             fetchDados();
-            alert('Valor atualizado com sucesso!');
+            toast.success('Valor atualizado');
         } catch (error) {
-            alert('Erro ao atualizar valor: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao atualizar valor', { detail: error.response?.data?.error });
         }
     };
 
@@ -87,11 +91,12 @@ const PaymentNotifications = () => {
     const handleSendIndividual = async (prestadorId) => {
         // Verificar se tem comprovante
         if (!comprovantes[prestadorId]) {
-            alert('É necessário enviar o comprovante antes de enviar o email!');
+            toast.warning('Envie o comprovante antes de enviar o email');
             return;
         }
 
-        if (!window.confirm('Enviar email com comprovante de pagamento para este colaborador?')) return;
+        const ok = await confirm({ title: 'Enviar comprovante por email?', message: 'O comprovante de pagamento será enviado a este colaborador.', confirmLabel: 'Enviar' });
+        if (!ok) return;
 
         setSending(true);
         try {
@@ -101,9 +106,9 @@ const PaymentNotifications = () => {
                 mes,
                 ano
             });
-            alert('Email com comprovante enviado com sucesso!');
+            toast.success('Email com comprovante enviado');
         } catch (error) {
-            alert('Erro ao enviar email: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao enviar email', { detail: error.response?.data?.error });
         } finally {
             setSending(false);
         }
@@ -117,11 +122,12 @@ const PaymentNotifications = () => {
         )];
 
         if (prestadorIdsComComprovante.length === 0) {
-            alert('Nenhum colaborador possui comprovante enviado!');
+            toast.warning('Nenhum colaborador possui comprovante enviado');
             return;
         }
 
-        if (!window.confirm(`Enviar comprovantes para ${prestadorIdsComComprovante.length} colaborador(es)?`)) return;
+        const ok = await confirm({ title: 'Enviar comprovantes em massa?', message: `Serão enviados para ${prestadorIdsComComprovante.length} colaborador(es).`, confirmLabel: 'Enviar' });
+        if (!ok) return;
 
         setSending(true);
         let sucessos = 0;
@@ -144,9 +150,13 @@ const PaymentNotifications = () => {
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
 
-            alert(`Envios concluídos!\nSucessos: ${sucessos}\nErros: ${erros}`);
+            if (erros === 0) {
+                toast.success(`Envios concluídos: ${sucessos} comprovante(s)`);
+            } else {
+                toast.warning(`Envios concluídos com falhas`, { detail: `Sucessos: ${sucessos} · Erros: ${erros}` });
+            }
         } catch (error) {
-            alert('Erro ao enviar emails: ' + (error.response?.data?.error || 'Erro desconhecido'));
+            toast.error('Erro ao enviar emails', { detail: error.response?.data?.error });
         } finally {
             setSending(false);
         }

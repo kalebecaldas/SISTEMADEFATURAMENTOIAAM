@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FileText, Upload, Eye, CheckCircle, XCircle, AlertCircle, Calendar, X } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
 import '../styles/Invoices.css';
 
 const MyInvoices = () => {
+    const toast = useToast();
     const [monthsData, setMonthsData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [uploadingMonth, setUploadingMonth] = useState(null);
@@ -100,10 +102,10 @@ const MyInvoices = () => {
             // Recarregar dados
             await fetchMonthsData();
 
-            alert('Nota fiscal enviada com sucesso!');
+            toast.success('Nota fiscal enviada');
         } catch (error) {
             console.error('Erro ao enviar nota:', error);
-            alert(error.response?.data?.error || 'Erro ao enviar nota fiscal');
+            toast.error('Erro ao enviar nota fiscal', { detail: error.response?.data?.error });
         } finally {
             setUploadingMonth(null);
         }
@@ -135,7 +137,7 @@ const MyInvoices = () => {
             window.URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Erro ao visualizar nota:', error);
-            alert('Erro ao visualizar nota fiscal');
+            toast.error('Erro ao visualizar nota fiscal');
         }
     };
 
