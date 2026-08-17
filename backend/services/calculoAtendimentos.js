@@ -727,9 +727,12 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
       numTurnos = Math.max(1, turnosReais.length);
     }
 
-    // Dias em que a pessoa efetivamente compareceu neste vínculo. Basta um
-    // atendimento no dia para o dia contar.
-    const diasTrabalhados = new Set((item.datas || []).map(d => String(d).trim()).filter(Boolean)).size;
+    // TURNOS trabalhados: um par (dia, turno). Basta um atendimento no turno para
+    // ele contar. Quem faz só um turno tem turnos = dias; quem faz manhã e tarde no
+    // mesmo dia conta dois — é o caso da Layane, que atende os dois turnos em dias
+    // alternados e fecha o mês em 26 turnos (13 manhãs + 13 tardes).
+    const turnosTrabalhados = Object.values(item._por_turno || {})
+      .reduce((soma, t) => soma + (t.dias ? t.dias.size : 0), 0);
 
     // Dois modelos de fixo:
     //   mensal  → valor cheio, e a falta desconta valor/30 (padrão histórico)
@@ -738,7 +741,7 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
     //             não trabalhado nem entra, então não há falta a descontar.
     const fixoBase = temFixoPJ ? (parseFloat(item.valor_fixo_base) || 0) : 0;
     const porDia = item.modelo_fixo === 'por_dia';
-    const fixoEfetivo = porDia ? fixoBase * diasTrabalhados : fixoBase * numTurnos;
+    const fixoEfetivo = porDia ? fixoBase * turnosTrabalhados : fixoBase * numTurnos;
 
     // Turno fora do contrato rende adicional no fixo, na mesma diária que a falta
     // desconta (fixo/30). É o espelho da falta: faltou tira 20, cobriu turno extra
@@ -794,7 +797,7 @@ async function processarAtendimentos(rows, tipoContratoForcado) {
       meta_mensal: item.meta_mensal,
       valor_fixo_base: item.valor_fixo_base,    // fixo unitário (1 turno ou 1 dia)
       modelo_fixo: porDia ? 'por_dia' : 'mensal',
-      dias_trabalhados: diasTrabalhados,
+      turnos_trabalhados: turnosTrabalhados,
       num_turnos: numTurnos,                    // quantos turnos foram trabalhados
       fixo_efetivo: fixoEfetivo,                // o que realmente entrou no cálculo
       faltas: 0,

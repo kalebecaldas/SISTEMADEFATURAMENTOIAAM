@@ -106,3 +106,20 @@ test('sem fixo não há adicional de turno extra', () => {
   assert.strictEqual(r.adicional_turno_extra, 0);
   assert.strictEqual(r.total, 800);
 });
+
+test('fixo por turno trabalhado: quem faz manhã e tarde conta os dois', () => {
+  // Layane atende manhã e tarde em dias alternados: 13 manhãs + 13 tardes = 26
+  // turnos. A R$ 20 o turno fecha R$ 520 no mês, perto do fixo mensal de 600.
+  const r = calcularValorPJ({
+    comissao: null,
+    valor_clinica: 6000,
+    valor_clinica_total: 6000,
+    valor_profissional_atend: 813.14,
+    valor_fixo_base: 26 * 20, // fixo efetivo já multiplicado pelos turnos
+    meta_mensal: null,
+    faltas: 0,
+    dias_extras: 0,
+  });
+  assert.strictEqual(r.fixo_ajustado, 520);
+  assert.strictEqual(Number(r.total.toFixed(2)), 1333.14);
+});
